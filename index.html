@@ -8,64 +8,27 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="app-shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Une vie après l'autre</p>
-        <h1>Retry RPG</h1>
-      </div>
-      <div class="top-actions">
-        <span id="save-status" class="save-status">Sauvegarde locale</span>
-        <button id="new-life" class="danger-button" type="button">Nouvelle vie</button>
-      </div>
-    </header>
-
-    <section id="create-screen" class="screen">
-      <div class="hero-card">
-        <p class="eyebrow">Bienvenue, héritier</p>
-        <h2>Chaque vie prépare la suivante.</h2>
-        <p>Choisissez une identité, un métier et une classe. Les progrès de vos vies précédentes deviennent des talents permanents.</p>
-        <form id="create-form" class="create-form">
-          <label>Nom du personnage
-            <input id="name-input" name="name" maxlength="24" placeholder="Ex. Mira" required>
-          </label>
-          <div class="choice-grid">
-            <fieldset>
-              <legend>Classe</legend>
-              <div id="class-options" class="option-list"></div>
-            </fieldset>
-            <fieldset>
-              <legend>Métier</legend>
-              <div id="job-options" class="option-list"></div>
-            </fieldset>
-          </div>
-          <button class="primary-button" type="submit">Commencer à 16 ans</button>
-        </form>
-      </div>
-      <aside class="legacy-card">
-        <h3>Héritage permanent</h3>
-        <p>Les déblocages restent acquis après chaque mort.</p>
-        <div id="legacy-preview"></div>
-      </aside>
-    </section>
-
-    <section id="game-screen" class="screen hidden">
-      <nav class="tabs" aria-label="Menus du jeu">
-        <button class="tab active" data-tab="summary">Résumé</button>
-        <button class="tab" data-tab="actions">Actions</button>
-        <button class="tab" data-tab="market">Commerce</button>
-        <button class="tab" data-tab="equipment">Équipement</button>
-        <button class="tab" data-tab="combat">Combat</button>
-        <button class="tab" data-tab="legacy">Héritage</button>
-      </nav>
-      <div id="tab-content"></div>
-      <section class="log-card">
-        <h3>Journal de vie</h3>
-        <ol id="event-log"></ol>
-      </section>
-    </section>
-  </main>
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js"></script>
+<main class="app-shell">
+  <header class="topbar">
+    <div><p class="eyebrow">Une vie après l'autre</p><h1>Retry RPG</h1></div>
+    <div class="top-actions"><span id="save-status" class="save-status">Sauvegarde locale</span><button id="new-life" class="danger-button" type="button">Nouvelle vie</button></div>
+  </header>
+  <section id="create-screen" class="screen">
+    <div class="hero-card"><p class="eyebrow">Nouvelle génération</p><h2>Chaque vie prépare la suivante.</h2><p>Les classes, métiers et maîtrises apprises se transmettent comme des connaissances. Les choix sont lents, mais jamais perdus.</p>
+      <form id="create-form" class="create-form"><label>Nom du personnage<input id="name-input" name="name" maxlength="24" placeholder="Ex. Mira" required></label>
+        <div class="choice-grid"><fieldset><legend>Classe</legend><div id="class-options" class="option-list"></div></fieldset><fieldset><legend>Métier</legend><div id="job-options" class="option-list"></div></fieldset></div>
+        <button class="primary-button" type="submit">Commencer à 16 ans</button>
+      </form>
+    </div>
+    <aside class="legacy-card"><h3>Héritage permanent</h3><p>Les acquis de la lignée restent disponibles pour les prochaines vies.</p><div id="legacy-preview"></div></aside>
+  </section>
+  <section id="game-screen" class="screen hidden">
+    <nav id="tabs" class="tabs" aria-label="Menus du jeu"></nav>
+    <div id="tab-content"></div>
+    <section class="log-card"><h3>Journal de vie</h3><ol id="event-log"></ol></section>
+  </section>
+</main>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
 </body>
 </html>
