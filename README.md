@@ -1,93 +1,100 @@
 # Retry RPG
 
-Retry RPG est un RPG textuel jouable dans un navigateur moderne, sans asset ni service externe. Il fonctionne localement sur Windows 10/11, Debian et Android.
+Retry RPG est un RPG textuel jouable dans un navigateur moderne, sans service externe. Une génération commence à 16 ans et chaque activité principale fait avancer l'âge d'une année exactement. La sauvegarde est automatique dans `localStorage` sous la clé `retry-rpg-save-v2`.
 
-## Lancer et sauvegarder
+## Créer une génération
+
+Le nom, la classe et le métier sont choisis à la naissance. Les classes et métiers déjà découverts par la lignée sont proposés lors des générations suivantes. Les héritages augmentent les statistiques initiales ou accélèrent un apprentissage, mais ne copient pas les niveaux de maîtrise de la génération précédente.
+
+Les statistiques principales sont Force, Magie, Agilité, Constitution, Savoir et Chance. Elles déterminent notamment les dégâts, la défense, le mana, la régénération, les résistances et le risque d'une rencontre en exploration. Les maîtrises utilisent les rangs Débutant, Novice, Apprenti, Initié, Confirmé, Expert et Maître.
+
+## Classes accessibles normalement
+
+| Classe | Condition de découverte |
+|---|---|
+| Sans classe | Toujours disponible |
+| Guerrier | Atteindre 7 Force |
+| Mage | Effectuer 4 études générales |
+| Voleur | Atteindre 6 XP de maîtrise des dagues |
+| Rôdeur | Effectuer 3 explorations |
+| Alchimiste | Trouver 4 objets |
+
+Une classe choisie reste celle de la génération. Les techniques de classe apparaissent dans l'entraînement lorsqu'une classe est active.
+
+## Classes cachées
+
+Ces classes existent dans la lignée mais restent masquées jusqu'à leur découverte :
+
+| Classe | Condition |
+|---|---|
+| Mage de feu | Atteindre 8 XP d'affinité du feu |
+| Mage de glace | Atteindre 8 XP d'affinité de la glace |
+| Arcaniste primordial | Obtenir un Cœur primordial |
+
+Les classes cachées découvertes sont conservées pour les prochaines générations.
+
+## Actions
+
+### Études
+
+L'onglet Études présente les activités réellement disponibles :
+
+- **Études générales**, accessibles à tous : Savoir et Magie progressent.
+- **Étude sur le mana**, accessible aux voies magiques : Magie et Savoir progressent et la compréhension magique peut être transmise.
+- **Études élémentaires**, accessibles aux voies magiques : une seule affinité choisie progresse à la fois parmi Feu, Glace, Vent et Terre. Elles débloquent les techniques et les conditions des évolutions correspondantes.
+
+Une étude n'accorde jamais automatiquement de maîtrise dans un autre domaine.
+
+### Entraînement
+
+L'onglet Entraînement regroupe :
+
+- le développement physique (Force, Agilité, Constitution) ;
+- les techniques de base (mains nues) ;
+- les techniques de combat par arme, qui augmentent la maîtrise de la catégorie et peuvent débloquer une attaque ;
+- les techniques de classe ;
+- les techniques magiques, dont la concentration de mana, qui augmente la régénération de mana.
+
+Les gains et la maîtrise actuelle sont affichés sur chaque activité. Les activités de classe ou magiques sont masquées tant que la condition n'est pas remplie. Travailler une arme ne donne pas de maîtrise élémentaire.
+
+### Exploration
+
+L'onglet Exploration décrit chaque zone avec sa difficulté, ses ennemis, ses ressources, son butin, ses risques et ses prérequis. Une zone inconnue peut être tentée directement si ses prérequis sont satisfaits. Dès la première entrée, elle devient découverte et reste sélectionnable jusqu'à la fin de la génération.
+
+L'entrée peut déclencher une rencontre aléatoire. La probabilité est centralisée et dépend de la difficulté et de l'Agilité : une Agilité élevée réduit le risque. Une exploration sans combat peut fournir une ressource, un objet ou aucun résultat. Les découvertes sont propres à la génération et sont réinitialisées lors de la création d'une nouvelle vie.
+
+Les autres activités sont le travail, qui rapporte de l'or selon le métier, et le repos, qui récupère des PV et du mana et peut guérir une maladie.
+
+## Zones
+
+Les zones disponibles sont la Forêt ancienne, les Ruines oubliées, la Crypte maudite, les Mines profondes, le Marais toxique, le Sanctuaire gelé, le Volcan ardent, la Tour des arcanes, l'Abîme des titans et le Donjon des origines. Les zones avancées demandent des statistiques ou une maîtrise élémentaire précises. Le Donjon des origines contient le Gardien primordial et peut fournir le Cœur primordial.
+
+## Combat
+
+Les combats sont au tour par tour, en mode Manuel ou Automatique. Les attaques utilisent la précision, les résistances, les coups critiques, les PV et le mana. Les maîtrises d'armes progressent lorsque la catégorie est travaillée et les techniques apprises peuvent être placées dans les quatre emplacements d'attaque.
+
+Un combat terminé compte comme une seule action de vie : les tours internes ne vieillissent pas le personnage. Le journal de combat détaille la zone, l'ennemi, les actions et le résultat.
+
+## Récompenses et journal de vie
+
+Une victoire tire une récompense de la zone puis l'ajoute réellement à l'inventaire. Le journal indique la zone, l'ennemi vaincu, les objets reçus et, le cas échéant, l'expérience ou les déblocages réellement attribués. Une récompense non obtenue n'est jamais affichée.
+
+Le journal de vie est daté uniquement par l'âge, par exemple `16 ans : naissance` ou `18 ans : étude sur le mana`. Il ne contient pas de numéro de séquence.
+
+## Maladies, commerce et équipement
+
+Les maladies ont une gravité et une progression ; elles peuvent empirer avec le temps. Les potions et le repos offrent des moyens de récupération.
+
+Le commerce renouvelle son stock tous les cinq ans. Les équipements occupent neuf emplacements et ajoutent des bonus soumis à des prérequis statistiques. Les objets de valeur, matériaux et consommables peuvent être vendus ou utilisés.
+
+## Héritage et fin de vie
+
+Une mort par vieillissement, maladie ou combat termine la génération, conserve l'historique et peut transmettre des talents d'apprentissage. **Nouvelle vie** abandonne volontairement la génération sans compter une mort. Le menu Héritage affiche les classes, métiers, talents, découvertes et personnages terminés.
+
+## Lancer le jeu
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Ouvrir ensuite `http://localhost:8080`. La sauvegarde est stockée automatiquement dans `localStorage` sous la clé `retry-rpg-save-v2`.
-
-## Cycle de vie
-
-Une run commence à 16 ans. Chaque action principale fait avancer l'âge exactement d'une année, puis applique ses conséquences. Les tours internes d'un combat ne vieillissent jamais le personnage; la fin du combat compte comme une seule action. Le journal est toujours daté par âge : `16 ans : naissance`, puis `17 ans : entraînement`.
-
-L'espérance moyenne initiale est de 30 ans, sans limite fixe. Le risque naturel augmente progressivement autour de cet âge : certains personnages meurent avant 30 ans et d'autres le dépassent. La Constitution et les héritages associés peuvent améliorer raisonnablement l'estimation affichée. Une mort de vieillesse, de maladie ou de combat termine la run. **Nouvelle vie** abandonne volontairement la run sans la compter comme une mort.
-
-## Statistiques et maîtrise
-
-Les statistiques principales sont Force, Magie, Agilité, Constitution, Savoir et Chance. Les gains des actions sont fractionnaires et lents : les choix ont donc plus d'importance que la répétition automatique.
-
-Les statistiques secondaires sont calculées depuis les caractéristiques et l'équipement : Précision, Esquive, Coup critique, Dégâts critiques, Vitesse d'attaque, Défense physique, Régénération de vie, Mana maximal, Régénération de mana, Puissance magique, Résistance magique, résistances tranchante, perforante, contondante, feu, glace, vent et terre. Les valeurs sont affichées près de leurs barres de PV et de mana.
-
-Tous les domaines utilisent sept rangs, avec une courbe d'expérience non linéaire : **Débutant, Novice, Apprenti, Initié, Confirmé, Expert, Maître**. La maîtrise de la run actuelle commence à Débutant et n'est jamais copiée directement dans une nouvelle génération. Le meilleur niveau historique, lui, est conservé.
-
-## Héritage et historique
-
-À la mort, les connaissances deviennent des talents permanents d'apprentissage. Une vocation de classe, des connaissances de métier, une affinité élémentaire ou une connaissance d'arme ajoutent un petit bonus cumulable à la vitesse de progression; elles ne donnent jamais automatiquement un rang.
-
-Le menu **Héritage** affiche les classes, évolutions, métiers, talents, sources et bonus permanents, ainsi que l'historique des personnages terminés : nom, classe, métier, âge final, maîtrises de la run, techniques apprises et découvertes. Les générations précédentes ne transmettent pas leurs niveaux temporaires.
-
-## Classes
-
-Une classe sélectionnée ne peut pas être changée durant la run. Une classe débloquée pendant une run est immédiatement sélectionnable si le personnage est encore sans classe et reste disponible aux générations suivantes.
-
-| Classe | Déblocage |
-|---|---|
-| Guerrier | Atteindre 7 Force |
-| Mage | Effectuer 4 actions d'étude générale |
-| Voleur | Atteindre 6 XP de maîtrise des dagues |
-| Rôdeur | Effectuer 3 explorations |
-| Alchimiste | Trouver 4 objets |
-| Mage de feu* | Atteindre 8 XP de maîtrise du feu |
-| Mage de glace* | Atteindre 8 XP de maîtrise de la glace |
-| Arcaniste primordial* | Obtenir le Cœur primordial |
-
-Les classes marquées `*` sont cachées avant leur découverte. Les évolutions Mage de feu et Mage de glace sont des classes distinctes, avec leur propre maîtrise et identité; elles ne demandent pas d'avoir maîtrisé Mage. Les évolutions vent et terre sont prévues par la même architecture de données.
-
-## Métiers
-
-Un métier choisi ne peut pas être changé durant la run. Les niveaux de métier utilisent les sept rangs de maîtrise.
-
-| Métier | Déblocage | Effet principal |
-|---|---|---|
-| Fermier | Effectuer 3 travaux | 28 or de base, Constitution |
-| Marchand | Gagner 90 or de travail | 38 or de base, bonus de revente |
-| Érudit | Effectuer 3 études | Savoir et progression magique |
-| Forgeron | Trouver 3 matériaux | 32 or de base et progression de forge |
-
-Sans métier, le travail reste possible mais rapporte seulement 12 or de base. L'aperçu du menu Actions utilise exactement la même formule que l'exécution.
-
-## Actions
-
-**Entraînement physique** travaille lentement Force et Constitution. **Étude générale** travaille Savoir et Magie sans augmenter automatiquement un élément. Des études ciblées séparées permettent de travailler activement Feu, Glace, Vent ou Terre; aucune maîtrise élémentaire ne progresse autrement. **Exploration générale** propose un résultat incertain : statistiques limitées, matériaux, objets revendables, consommables ou découvertes rares. **Travail** est la source directe d'argent principale. **Repos** récupère PV/mana et peut guérir une maladie sans garantie.
-
-## Techniques et attaques
-
-Un nouveau personnage connaît uniquement **Frappe tranchante** et peut laisser trois emplacements d'attaque vides. Les attaques équipées sont donc comprises entre zéro et quatre, et le combat automatique utilise seulement celles qui existent; à défaut, une attaque de base gratuite est utilisée.
-
-Les techniques élémentaires ne sont jamais données au départ. Les étudier activement augmente l'affinité et débloque progressivement les sorts correspondants. Les techniques d'armes se débloquent de la même façon avec l'utilisation réelle de la catégorie : épées, haches, masses et marteaux, lances, arcs et arbalètes, dagues, mains nues et catalyseurs. Les techniques de la run ne sont pas copiées aux générations suivantes, seuls les talents d'apprentissage sont transmis.
-
-Chaque technique possède nom, catégorie, puissance, précision sans symbole `%` dans l'interface, coût de mana, description et effets éventuels. Le menu Stats combat permet de remplacer une attaque équipée par une technique apprise.
-
-## Combat
-
-Les combats sont au tour par tour, en mode **Manuel** ou **Automatique**. Le mode automatique choisit en fonction des PV, du mana disponible, de la puissance et des résistances ennemies, sans vieillir à chaque tour. Les dégâts différencient tranchant, perforant, contondant, feu, glace, vent et terre. Le journal de combat détaille attaque, précision, dégâts, critiques, résistances, statuts, soins et résultat.
-
-Les talents conditionnels présents sont Berserker (PV faibles), Prédateur (ennemi presque vaincu), Instinct élémentaire et Dernier souffle. La maîtrise d'arme progresse lors de l'utilisation réelle des attaques.
-
-## Maladies
-
-Les maladies sont des statuts indépendants des statistiques principales. Elles possèdent un nom, une gravité (Légère, Modérée, Grave ou Critique), une progression et un risque d'aggravation. Le repos peut les soigner; certaines potions aident également. Une maladie critique non traitée peut être mortelle.
-
-## Commerce, objets et équipement
-
-Le commerce renouvelle une partie de son stock tous les cinq ans d'âge. Les objets sont empilables et possèdent un prix d'achat et un prix de revente inférieur. Le joueur peut acheter, vendre et consulter les quantités.
-
-Les catégories sont équipements, consommables, objets de valeur et matériaux. Les équipements ont les raretés Commun, Inhabituel, Rare et Mythique, sans affixes aléatoires. Les neuf emplacements sont : arme principale, arme secondaire, casque, plastron, jambières, bottes, gants, accessoire 1 et accessoire 2. Les prérequis sont exclusivement statistiques.
-
-## Zones et découvertes
-
-Les dix zones sont Forêt ancienne, Ruines oubliées, Crypte maudite, Mines profondes, Marais toxique, Sanctuaire gelé, Volcan ardent, Tour des arcanes, Abîme des titans et Donjon des origines. Leur difficulté, leurs prérequis, leurs ennemis et leur butin sont distincts. Le Donjon des origines contient le boss Gardien primordial. Son butin rare, le Cœur primordial, débloque définitivement l'Arcaniste primordial et le rend sélectionnable immédiatement pour un personnage sans classe.
+Ouvrir ensuite `http://localhost:8080`.

@@ -191,3 +191,141 @@ document.querySelector("#new-life").addEventListener("click", abandonLife);
 document.querySelector("#game-screen").addEventListener("click", e => { const t = e.target.closest("[data-tab]"), a = e.target.closest("[data-action]"), es = e.target.closest("[data-element-study]"), b = e.target.closest("[data-buy]"), s = e.target.closest("[data-sell]"), u = e.target.closest("[data-use]"), eq = e.target.closest("[data-equip]"), z = e.target.closest("[data-zone]"), at = e.target.closest("[data-attack]"), sa = e.target.closest("[data-set-attack]"), cc = e.target.closest("[data-select-class]"), cj = e.target.closest("[data-select-job]"); if (t) { activeTab = t.dataset.tab; renderGame(); } if (a) doAction(a.dataset.action); if (es) studyElement(es.dataset.elementStudy); if (b) buy(b.dataset.buy); if (s) sell(s.dataset.sell); if (u) useItem(u.dataset.use); if (eq) equip(eq.dataset.equip); if (z) startCombat(z.dataset.zone); if (at) chooseAttack(at.dataset.attack); if (sa) setAttack(sa.dataset.setAttack); if (cc) chooseClass(cc.dataset.selectClass); if (cj) chooseJob(cj.dataset.selectJob); if (e.target.closest("[data-auto-turn]")) autoTurn(); });
 document.querySelector("#game-screen").addEventListener("change", e => { if (e.target.id === "combat-mode") { localStorage.setItem("retry-combat-mode", e.target.value); renderGame(); } });
 renderCreate();
+
+/* The activity catalogue keeps the three action areas extensible without
+   coupling their definitions to the tab renderer. */
+const STUDIES = [
+  { id: "general", name: "Études générales", description: "Lire, observer et structurer les connaissances.", gains: { knowledge: .25, magic: .2 }, available: () => true },
+  { id: "mana", name: "Étude sur le mana", description: "Comprendre les flux de mana et préparer les techniques arcaniques.", gains: { magic: .35, knowledge: .15 }, available: r => ["mage", "fireMage", "iceMage", "primordial"].includes(r.classId) },
+  ...Object.entries(ELEMENTS).map(([id, name]) => ({ id: `element-${id}`, name: `Étude élémentaire : ${name}`, description: `Développer uniquement l'affinité ${name} et ses évolutions.`, element: id, gains: { knowledge: .1 }, available: r => ["mage", "fireMage", "iceMage", "primordial"].includes(r.classId) }))
+];
+const TRAINING = [
+  { id: "physical", category: "Développement physique", name: "Développement physique", description: "Renforcer Force, Agilité et Constitution.", gains: { strength: .22, agility: .16, constitution: .22 } },
+  { id: "basics", category: "Techniques de base", name: "Techniques de base", description: "Améliorer la précision et la maîtrise des mains nues.", weapon: "unarmed", gains: { agility: .12 } },
+  ...Object.entries(WEAPONS).filter(([id]) => id !== "unarmed" && id !== "catalyst").map(([id, name]) => ({ id: `weapon-${id}`, category: "Techniques de combat", name: `S'entraîner : ${name}`, description: `Améliorer la maîtrise des ${name.toLowerCase()} et débloquer des techniques.`, weapon: id, gains: { strength: .1, agility: .1 } })),
+  { id: "class", category: "Techniques de classe", name: "Technique de classe", description: "Répéter les fondamentaux de la classe actuelle.", classOnly: true, gains: { classXP: .7 } },
+  { id: "concentration", category: "Techniques magiques", name: "Concentration de mana", description: "Développer une technique qui améliore durablement la régénération de mana.", magicOnly: true, gains: { magic: .2, concentration: 1 } }
+];
+function runState() {
+  const r = save.run;
+  r.discoveredZones ||= [];
+  r.techniqueMastery ||= { concentration: 0 };
+  r.weaponMastery ||= emptyMastery(Object.keys(WEAPONS));
+  r.elementMastery ||= emptyMastery(Object.keys(ELEMENTS));
+  return r;
+}
+function newRun() {
+  const r = { age: 16, actions: 0, gold: 40, hp: 100, maxHp: 100, mana: 30, classId: "none", jobId: "none", stats: Object.fromEntries(STATS.map(([id]) => [id, 3 + Math.floor(Math.random() * 3)])), maxStats: Object.fromEntries(STATS.map(([id]) => [id, 3])), diseases: [], statuses: [], inventory: { "health-potion": 1 }, equipment: {}, weaponMastery: emptyMastery(Object.keys(WEAPONS)), elementMastery: emptyMastery(Object.keys(ELEMENTS)), techniqueMastery: { concentration: 0 }, discoveredZones: [], classXP: 0, jobXP: 0, explorations: 0, studyActions: 0, workActions: 0, itemsFound: 0, materials: 0, shopSeed: 0, shopStock: ["iron-sword", "leather-hood", "health-potion", "old-gem"], learned: ["slash"], equippedAttacks: ["slash", null, null, null], log: [] };
+  return r;
+}
+function loadSave() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!raw?.legacy || raw.run === undefined) return defaultSave();
+    if (raw.schema !== 3) raw.schema = 3;
+    if (raw.run) {
+      raw.run.discoveredZones ||= [];
+      raw.run.techniqueMastery ||= { concentration: 0 };
+      raw.run.weaponMastery ||= emptyMastery(Object.keys(WEAPONS));
+      raw.run.elementMastery ||= emptyMastery(Object.keys(ELEMENTS));
+    }
+    return raw;
+  } catch (error) {
+    console.warn("Impossible de charger la sauvegarde locale.", error);
+    return defaultSave();
+  }
+}
+function availableStudies() { return STUDIES.filter(study => study.available(save.run)); }
+function availableTraining() {
+  return TRAINING.filter(activity => !activity.classOnly || save.run.classId !== "none")
+    .filter(activity => !activity.magicOnly || ["mage", "fireMage", "iceMage", "primordial"].includes(save.run.classId));
+}
+function activityCard(activity, action, extra = "") {
+  return `<article class="action-card"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${extra || fmtBonuses(activity.gains)}${extra?.endsWith("1 an") ? "" : " · 1 an"}</small><button class="primary-button" data-action="${action}">Effectuer</button></article>`;
+}
+function actionMarkup() {
+  const studyGroups = Object.entries(availableStudies().reduce((groups, study) => { const key = study.element ? "Études élémentaires" : "Études disponibles"; (groups[key] ||= []).push(study); return groups; }, {}));
+  const studies = studyGroups.map(([title, entries]) => `<section class="category"><h3>${title}</h3><div class="action-grid">${entries.map(study => activityCard(study, `study:${study.id}`, study.element ? `${masteryText(save.run.elementMastery[study.element])} · +${study.gains.knowledge} Savoir` : fmtBonuses(study.gains))).join("")}</div></section>`).join("");
+  const training = Object.entries(availableTraining().reduce((groups, activity) => { (groups[activity.category] ||= []).push(activity); return groups; }, {})).map(([title, entries]) => `<section class="category"><h3>${title}</h3><div class="action-grid">${entries.map(activity => activityCard(activity, `train:${activity.id}`, activity.weapon ? `${masteryText(save.run.weaponMastery[activity.weapon])} · ${fmtBonuses(activity.gains)}` : activity.id === "concentration" ? `Niveau ${save.run.techniqueMastery.concentration} · régénération +${save.run.techniqueMastery.concentration * .5}` : fmtBonuses(activity.gains))).join("")}</div></section>`).join("");
+  return `<div class="panel"><h2>Études</h2><p class="muted">Les activités affichées dépendent des connaissances et de la classe actuelle. Une étude élémentaire ne progresse que l'élément choisi.</p>${studies}</div><div class="panel"><h2>Entraînement</h2><p class="muted">Chaque activité fait progresser uniquement ses domaines et avance l'âge d'une année.</p>${training}</div><div class="panel"><h2>Autres activités</h2><div class="action-grid">${activityCard({ name: "Travailler", description: `Gagner environ ${estimatedWork()} or.`, gains: {} }, "work", `${estimatedWork()} or · 1 an`)}${activityCard({ name: "Se reposer", description: "Récupérer des PV et du mana, avec une chance de guérison.", gains: {} }, "rest", "Récupération · 1 an")}</div></div>`;
+}
+function explorationMarkup() {
+  const r = runState(), s = totals();
+  return `<div class="panel"><h2>Exploration</h2><p class="muted">Une zone inconnue peut être tentée avant sa découverte. La première entrée la rend disponible pour toute la run. Le risque d'une rencontre dépend de la difficulté et de l'Agilité (${s.agility.toFixed(1)}).</p><div class="zone-grid">${ZONES.map(zoneCard).join("")}</div></div>`;
+}
+function zoneCard(z) {
+  const r = runState(), s = totals(), req = z.req ? z.req.stat ? `${statName(z.req.stat)} ${z.req.value}` : `${ELEMENTS[z.req.element]} niveau ${z.req.value}` : "aucun";
+  const locked = z.req && (z.req.stat ? s[z.req.stat] < z.req.value : level(r.elementMastery[z.req.element]) < z.req.value);
+  const discovered = r.discoveredZones.includes(z.id);
+  const encounter = Math.round(Math.max(.05, Math.min(.65, .18 + z.difficulty * .045 - s.agility * .012)) * 100);
+  return `<article class="zone-card ${locked ? "locked" : ""}"><header><strong>${z.name}</strong><span class="tag">${discovered ? "Découverte" : "Inconnue"} · Difficulté ${z.difficulty}</span></header><p>${z.description}<br><span class="muted">Ennemis : ${z.enemy.join(", ")}</span></p><small class="muted">Ressources / récompenses : ${z.reward.map(id => item(id).name).join(", ")}<br>Risque : ${encounter}% de rencontre · Prérequis : ${req}</small><button class="primary-button" data-zone="${z.id}" ${locked ? "disabled" : ""}>${discovered ? "Explorer" : "Tenter la découverte"}</button></article>`;
+}
+function renderGame() {
+  const tabs = [["summary", "Résumé"], ["study", "Études"], ["training", "Entraînement"], ["exploration", "Exploration"], ["classjob", "Classes / métiers"], ["market", "Commerce"], ["inventory", "Inventaire"], ["equipment", "Équipement"], ["combat", "Combat"], ["stats", "Stats combat"], ["legacy", "Héritage"]];
+  const views = { summary: summaryMarkup, study: studyMarkup, training: trainingMarkup, exploration: explorationMarkup, classjob: classJobMarkup, market: marketMarkup, inventory: inventoryMarkup, equipment: equipmentMarkup, combat: combatMarkup, stats: statsMarkup, legacy: legacyMarkup };
+  document.querySelector("#tabs").innerHTML = tabs.map(([id, name]) => `<button class="tab ${activeTab === id ? "active" : ""}" data-tab="${id}">${name}</button>`).join("");
+  document.querySelector("#tab-content").innerHTML = views[activeTab]();
+  document.querySelector("#event-log").innerHTML = save.run.log.map(x => `<li>${esc(x)}</li>`).join("");
+}
+function studyMarkup() {
+  const groups = Object.entries(availableStudies().reduce((out, study) => { const key = study.element ? "Études élémentaires" : "Études disponibles"; (out[key] ||= []).push(study); return out; }, {}));
+  return `<div class="panel"><h2>Études</h2><p class="muted">Les études accessibles dépendent de la classe et des connaissances du personnage.</p>${groups.map(([title, studies]) => `<section class="category"><h3>${title}</h3><div class="action-grid">${studies.map(study => activityCard(study, `study:${study.id}`, study.element ? `${masteryText(save.run.elementMastery[study.element])} · +${study.gains.knowledge} Savoir` : fmtBonuses(study.gains))).join("")}</div></section>`).join("")}</div>`;
+}
+function trainingMarkup() {
+  const groups = Object.entries(availableTraining().reduce((out, activity) => { (out[activity.category] ||= []).push(activity); return out; }, {}));
+  return `<div class="panel"><h2>Entraînement</h2><p class="muted">Chaque catégorie affiche les gains et la progression attendue. Les techniques de classe et magiques apparaissent après leur déblocage.</p>${groups.map(([title, activities]) => `<section class="category"><h3>${title}</h3><div class="action-grid">${activities.map(activity => activityCard(activity, `train:${activity.id}`, activity.weapon ? `${masteryText(save.run.weaponMastery[activity.weapon])} · ${fmtBonuses(activity.gains)}` : activity.id === "concentration" ? `Niveau ${save.run.techniqueMastery.concentration} · régénération +${save.run.techniqueMastery.concentration * .5}` : fmtBonuses(activity.gains))).join("")}</div></section>`).join("")}</div><div class="panel"><h2>Autres activités</h2><div class="action-grid">${activityCard({ name: "Travailler", description: `Gagner environ ${estimatedWork()} or.`, gains: {} }, "work", `${estimatedWork()} or · 1 an`)}${activityCard({ name: "Se reposer", description: "Récupérer des PV et du mana.", gains: {} }, "rest", "Récupération · 1 an")}</div></div>`;
+}
+function doAction(id) {
+  const r = runState();
+  if (id.startsWith("study:")) {
+    const study = STUDIES.find(x => x.id === id.slice(6));
+    if (!study || !study.available(r)) return notify("Cette étude n'est pas encore accessible.");
+    r.studyActions++;
+    if (study.element) gainMastery("elementMastery", study.element, 3);
+    return completeAction(`${study.name} : ${fmtBonuses(study.gains)}.`, study.gains);
+  }
+  if (id.startsWith("train:")) {
+    const activity = TRAINING.find(x => x.id === id.slice(6));
+    if (!activity || !availableTraining().includes(activity)) return notify("Cet entraînement n'est pas accessible.");
+    if (activity.weapon) gainMastery("weaponMastery", activity.weapon, 2);
+    if (activity.classOnly) r.classXP += activity.gains.classXP;
+    if (activity.id === "concentration") r.techniqueMastery.concentration++;
+    return completeAction(`${activity.name} : ${fmtBonuses(activity.gains)}.`, Object.fromEntries(Object.entries(activity.gains).filter(([key]) => key !== "classXP")));
+  }
+  if (id === "work") {
+    const job = JOBS[r.jobId], earnings = Math.round(job.work * (1 + level(r.jobXP) * .12) + (r.jobId === "merchant" ? Math.floor(r.gold * .03) : 0));
+    advanceYear(); if (!save.run) return; r.gold += earnings; save.legacy.goldEarned += earnings; r.workActions++; r.jobXP += 2; if (job.stat) gainStat(job.stat, .2); log(`Travail de ${job.name} : +${earnings} or.`); persist(); return renderGame();
+  }
+  if (id === "rest") return rest();
+}
+function startCombat(zoneId) {
+  const z = ZONES.find(x => x.id === zoneId); if (!z) return;
+  const r = runState(), s = totals();
+  if (!r.discoveredZones.includes(z.id)) { r.discoveredZones.push(z.id); save.legacy.discoveries = [...new Set([...(save.legacy.discoveries || []), z.id])]; }
+  const chance = Math.max(.05, Math.min(.65, .18 + z.difficulty * .045 - s.agility * .012));
+  r.explorations++;
+  if (Math.random() >= chance) {
+    const reward = Math.random() < .5 ? z.reward[0] : null;
+    if (reward) { addItem(reward); r.itemsFound++; if (item(reward).kind === "material") r.materials++; }
+    const result = reward ? `Exploration de ${z.name} sans combat : ${item(reward).name} x1 trouvé.` : `Exploration de ${z.name} sans combat : aucune ressource trouvée.`;
+    return completeAction(result, { agility: .2, luck: .15 });
+  }
+  combat = { zone: z, enemy: enemyFor(z), mode: document.querySelector("#combat-mode")?.value || "manual", turn: 1, log: [`Entrée dans ${z.name}. Une rencontre survient (${Math.round(chance * 100)}%).`], finished: false };
+  localStorage.setItem("retry-combat-mode", combat.mode); renderGame(); if (combat.mode === "auto") setTimeout(autoTurn, 80);
+}
+function finishCombat(win) {
+  const r = save.run, z = combat.zone, e = combat.enemy; combat.finished = true;
+  if (!win) { combat.log.unshift(`Défaite dans ${z.name} contre ${e.name}.`); log(`Défaite dans ${z.name} contre ${e.name}.`); return die("Vos blessures de combat sont mortelles."); }
+  const reward = z.reward[Math.floor(Math.random() * z.reward.length)], gained = [];
+  addItem(reward); r.itemsFound++; if (item(reward).kind === "material") r.materials++; gained.push(`${item(reward).name} x1`);
+  r.classXP += r.classId === "none" ? 0 : .5;
+  combat.log.unshift(`Victoire dans ${z.name} contre ${e.name}.`);
+  combat.log.unshift(`Récompenses réellement obtenues : ${gained.join(", ")}${r.classId !== "none" ? " · +0,5 XP de classe" : ""}.`);
+  log(`Combat remporté dans ${z.name} contre ${e.name} : ${gained.join(", ")}${r.classId !== "none" ? " ; +0,5 XP de classe" : ""}.`);
+  advanceYear(); if (!save.run) return; combat = null; persist(); renderGame();
+}
+function totals() {
+  const c = save.run, eq = equippedBonuses(), s = { ...c.stats };
+  Object.entries(eq).forEach(([k, v]) => s[k] = (s[k] || 0) + v);
+  return { ...s, accuracy: 80 + s.agility * 2 + (eq.accuracy || 0), evasion: 3 + s.agility + (eq.evasion || 0), crit: 3 + s.luck * .4 + (eq.crit || 0), critDamage: 150 + s.strength * 2 + (eq.critDamage || 0), attackSpeed: 10 + s.agility + (eq.attackSpeed || 0), defense: s.constitution * 2 + (eq.defense || 0), lifeRegen: Math.floor(s.constitution / 5) + (eq.lifeRegen || 0), maxMana: 25 + s.magic * 4 + s.knowledge * 2 + (eq.maxMana || 0), manaRegen: 2 + Math.floor(s.magic / 5) + (eq.manaRegen || 0) + (c.techniqueMastery?.concentration || 0) * .5, magicPower: s.magic * 2 + s.knowledge + (eq.magicPower || 0), magicResistance: s.magic + s.knowledge / 2 + (eq.magicResistance || 0), slashRes: Math.floor(s.constitution / 2) + (eq.slashRes || 0), pierceRes: Math.floor(s.agility / 2) + (eq.pierceRes || 0), bluntRes: Math.floor(s.strength / 3) + (eq.bluntRes || 0), fireRes: Math.floor(s.magic / 3) + (eq.fireRes || 0), iceRes: Math.floor(s.magic / 3) + (eq.iceRes || 0), windRes: Math.floor(s.agility / 3) + (eq.windRes || 0), earthRes: Math.floor(s.constitution / 3) + (eq.earthRes || 0) };
+}
