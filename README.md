@@ -35,6 +35,8 @@ Les classes cachées découvertes sont conservées pour les prochaines générat
 
 ## Actions
 
+Toutes les activités sont regroupées dans l'onglet principal **Actions**, avec cinq sous-onglets : **Études**, **Entraînement**, **Exploration**, **Travailler** et **Se reposer**. Chaque action conserve son coût d'une année et ses conditions de déblocage.
+
 ### Études
 
 L'onglet Études présente les activités réellement disponibles :
@@ -88,6 +90,8 @@ Les maladies ont une gravité et une progression ; elles peuvent empirer avec le
 Le commerce renouvelle son stock tous les cinq ans. Les équipements occupent neuf emplacements et ajoutent des bonus soumis à des prérequis statistiques. Les objets de valeur, matériaux et consommables peuvent être vendus ou utilisés.
 
 ## Héritage et fin de vie
+
+Les huit maîtrises d'armes, les quatre affinités élémentaires, la maîtrise de classe, les quatre métiers et la Concentration du mana possèdent chacune un passif héritable. Le meilleur rang atteint est mémorisé par domaine ; la valeur correspondante s'ajoute aux générations suivantes et se cumule sans diminuer. Les maîtrises actives sont recréées à zéro à chaque naissance.
 
 Une mort par vieillissement, maladie ou combat termine la génération, conserve l'historique et peut transmettre des talents d'apprentissage. **Nouvelle vie** abandonne volontairement la génération sans compter une mort. Le menu Héritage affiche les classes, métiers, talents, découvertes et personnages terminés.
 

@@ -9,6 +9,20 @@ const WEAPONS = { sword: "Épées", axe: "Haches", hammer: "Masses et marteaux",
 const SLOTS = { main: "Arme principale", off: "Arme secondaire", helmet: "Casque", chest: "Plastron", legs: "Jambières", boots: "Bottes", gloves: "Gants", accessory1: "Accessoire 1", accessory2: "Accessoire 2" };
 const MASTERY_LEVELS = ["Débutant", "Novice", "Apprenti", "Initié", "Confirmé", "Expert", "Maître"];
 const MASTERY_XP = [0, 8, 24, 55, 105, 180, 300];
+const MASTERY_DOMAINS = {
+  ...Object.fromEntries(Object.entries(WEAPONS).map(([id, name]) => [id, {
+    label: name, source: "Armes", passive: id === "hammer" ? { bluntRes: 1.2, damage: 1.5 } : id === "bow" ? { accuracy: 1.5, attackSpeed: 1 } : id === "dagger" ? { accuracy: 1, evasion: 1.2 } : id === "catalyst" ? { magicPower: 1.5, manaRegen: .3 } : id === "unarmed" ? { defense: 1, damage: 1 } : { damage: 1.2, accuracy: .5 }
+  }])),
+  ...Object.fromEntries(Object.entries(ELEMENTS).map(([id, name]) => [id, {
+    label: name, source: "Éléments", passive: { magicPower: 1.5, [`${id}Res`]: 1.5 }
+  }])),
+  class: { label: "Potentiel de classe", source: "Classes", passive: { lifeExpectancy: 1, defense: 1, magicPower: 1, damage: 1 } },
+  farmer: { label: "Fermier", source: "Métiers", passive: { workGold: 1, lifeRegen: .4 } },
+  merchant: { label: "Marchand", source: "Métiers", passive: { workGold: 1, sellBonus: 2 } },
+  scholar: { label: "Érudit", source: "Métiers", passive: { workGold: 1, studyYield: .8, magicPower: 1 } },
+  blacksmith: { label: "Forgeron", source: "Métiers", passive: { workGold: 1, equipmentPower: 1 } },
+  concentration: { label: "Concentration du mana", source: "Techniques", passive: { manaRegen: .8, manaEfficiency: 1.5 } }
+};
 const STAT_LABELS = {
   accuracy: "Précision", evasion: "Esquive", crit: "Coup critique", critDamage: "Dégâts critiques",
   attackSpeed: "Vitesse d'attaque", defense: "Défense physique", lifeRegen: "Régénération de vie",
@@ -16,6 +30,7 @@ const STAT_LABELS = {
   slashRes: "Résistance tranchante", pierceRes: "Résistance perforante", bluntRes: "Résistance contondante",
   fireRes: "Résistance au feu", iceRes: "Résistance à la glace", windRes: "Résistance au vent", earthRes: "Résistance à la terre"
 };
+const PASSIVE_LABELS = { damage: "Dégâts", lifeExpectancy: "ans d'espérance de vie", workGold: "or par travail", sellBonus: "Bonus de vente", studyYield: "Rendement d'étude", equipmentPower: "Efficacité d'équipement", manaEfficiency: "Efficacité de récupération du mana" };
 const RES_KEYS = { slash: "slashRes", pierce: "pierceRes", blunt: "bluntRes", fire: "fireRes", ice: "iceRes", wind: "windRes", earth: "earthRes", magic: "magicResistance" };
 const CLASSES = {
   none: { name: "Sans classe", description: "Une voie libre, sans bonus de spécialisation.", stat: null, unlock: () => true },
@@ -52,6 +67,31 @@ const ITEMS = [
   { id: "ore", name: "Minerai de fer", kind: "material", rarity: "Commun", price: 16, sell: 9, description: "Matériau utile au forgeron." },
   { id: "ember", name: "Braise élémentaire", kind: "material", rarity: "Rare", price: 48, sell: 25, description: "Matériau chargé de magie." }
 ];
+ITEMS.push(
+  { id: "warrior-blade", name: "Lame du rempart", kind: "equipment", rarity: "Rare", slot: "main", weapon: "sword", classWeapon: "warrior", price: 150, sell: 82, bonus: { strength: 2, defense: 4, accuracy: 2 }, req: { strength: 5 }, description: "Une épée équilibrée pour le Guerrier." },
+  { id: "mage-focus", name: "Focaliseur astral", kind: "equipment", rarity: "Rare", slot: "main", weapon: "catalyst", classWeapon: "mage", price: 165, sell: 90, bonus: { magic: 2, maxMana: 18, magicPower: 5 }, req: { magic: 6 }, description: "Un catalyseur conçu pour le Mage." },
+  { id: "flame-scepter", name: "Sceptre incandescent", kind: "equipment", rarity: "Rare", slot: "main", weapon: "catalyst", classWeapon: "fireMage", price: 180, sell: 98, bonus: { magic: 2, magicPower: 6, fireRes: 4 }, req: { magic: 7 }, description: "Le foyer du Mage de feu." },
+  { id: "frost-orb", name: "Orbe cryogène", kind: "equipment", rarity: "Rare", slot: "main", weapon: "catalyst", classWeapon: "iceMage", price: 180, sell: 98, bonus: { magic: 2, magicPower: 5, iceRes: 5 }, req: { magic: 7 }, description: "Un orbe pour le Mage de glace." },
+  { id: "rogue-daggers", name: "Dagues jumelles", kind: "equipment", rarity: "Rare", slot: "main", weapon: "dagger", classWeapon: "rogue", price: 145, sell: 78, bonus: { agility: 2, accuracy: 5, crit: 3 }, req: { agility: 6 }, description: "Les lames rapides du Voleur." },
+  { id: "ranger-longbow", name: "Arc des lisières", kind: "equipment", rarity: "Rare", slot: "main", weapon: "bow", classWeapon: "ranger", price: 155, sell: 84, bonus: { agility: 2, attackSpeed: 3, accuracy: 5 }, req: { agility: 6 }, description: "Un arc pour le Rôdeur." },
+  { id: "alchemist-vial", name: "Baguette de distillation", kind: "equipment", rarity: "Rare", slot: "main", weapon: "catalyst", classWeapon: "alchemist", price: 150, sell: 82, bonus: { knowledge: 2, magicPower: 3, lifeRegen: 2 }, req: { knowledge: 6 }, description: "Le catalyseur de l'Alchimiste." },
+  { id: "primordial-core", name: "Lance des origines", kind: "equipment", rarity: "Mythique", slot: "main", weapon: "spear", classWeapon: "primordial", price: 260, sell: 140, bonus: { magic: 3, strength: 2, magicPower: 7, fireRes: 3, iceRes: 3, windRes: 3, earthRes: 3 }, req: { magic: 8 }, description: "Une arme adaptée à l'Arcaniste primordial." },
+  { id: "iron-helm", name: "Heaume de garde", kind: "equipment", rarity: "Commun", slot: "helmet", price: 48, sell: 25, bonus: { constitution: 1, defense: 3 }, req: { constitution: 4 }, description: "Protège efficacement la tête." },
+  { id: "scholar-hood", name: "Capuche de l'érudit", kind: "equipment", rarity: "Inhabituel", slot: "helmet", price: 70, sell: 38, bonus: { knowledge: 2, magicResistance: 2 }, req: { knowledge: 4 }, description: "Un couvre-chef chargé de notes." },
+  { id: "scale-cuirass", name: "Cuirasse d'écailles", kind: "equipment", rarity: "Inhabituel", slot: "chest", price: 92, sell: 50, bonus: { strength: 1, constitution: 2, defense: 5 }, req: { strength: 5 }, description: "Une armure solide et mobile." },
+  { id: "arcane-robe", name: "Robe des courants", kind: "equipment", rarity: "Rare", slot: "chest", price: 125, sell: 68, bonus: { magic: 2, maxMana: 10, magicResistance: 4 }, req: { magic: 6 }, description: "Une robe amplifiant les flux." },
+  { id: "iron-greaves", name: "Grèves ferrées", kind: "equipment", rarity: "Commun", slot: "legs", price: 52, sell: 28, bonus: { constitution: 1, defense: 3, bluntRes: 2 }, req: { constitution: 4 }, description: "Des jambières robustes." },
+  { id: "swift-greaves", name: "Jambières de course", kind: "equipment", rarity: "Inhabituel", slot: "legs", price: 78, sell: 42, bonus: { agility: 2, evasion: 3 }, req: { agility: 5 }, description: "Allègent les déplacements." },
+  { id: "grip-gauntlets", name: "Gantelets d'impact", kind: "equipment", rarity: "Inhabituel", slot: "gloves", price: 74, sell: 40, bonus: { strength: 2, damage: 2 }, req: { strength: 5 }, description: "Renforcent les frappes." },
+  { id: "weaver-gloves", name: "Gants de tisseur", kind: "equipment", rarity: "Rare", slot: "gloves", price: 105, sell: 57, bonus: { magic: 1, accuracy: 3, manaRegen: 1 }, req: { magic: 5 }, description: "Facilitent la manipulation du mana." },
+  { id: "iron-buckler", name: "Rondache de fer", kind: "equipment", rarity: "Commun", slot: "off", price: 58, sell: 31, bonus: { defense: 5, slashRes: 3 }, req: { strength: 4 }, description: "Un bouclier secondaire fiable." },
+  { id: "focus-tome", name: "Tome de focalisation", kind: "equipment", rarity: "Rare", slot: "off", price: 118, sell: 64, bonus: { knowledge: 2, maxMana: 14, magicPower: 2 }, req: { knowledge: 6 }, description: "Un grimoire utilisable en main secondaire." },
+  { id: "luck-charm", name: "Talisman de fortune", kind: "equipment", rarity: "Inhabituel", slot: "accessory1", price: 82, sell: 44, bonus: { luck: 2, crit: 2 }, req: { luck: 5 }, description: "Attire les occasions favorables." },
+  { id: "ember-pendant", name: "Pendentif de braise", kind: "equipment", rarity: "Rare", slot: "accessory2", price: 132, sell: 72, bonus: { fireRes: 8, magicPower: 2 }, req: { magic: 5 }, description: "Résiste aux flammes et les attise." },
+  { id: "wind-feather", name: "Plume des vents", kind: "equipment", rarity: "Inhabituel", slot: "accessory2", price: 88, sell: 48, bonus: { evasion: 3, windRes: 5, attackSpeed: 1 }, req: { agility: 5 }, description: "Un charme léger qui favorise l'esquive." },
+  { id: "wanderer-boots", name: "Bottes de piste", kind: "equipment", rarity: "Commun", slot: "boots", price: 44, sell: 24, bonus: { agility: 1, evasion: 2 }, req: { agility: 3 }, description: "Des bottes fiables pour voyager." },
+  { id: "mana-sandals", name: "Sandales de flux", kind: "equipment", rarity: "Rare", slot: "boots", price: 96, sell: 52, bonus: { magic: 1, manaRegen: 2, windRes: 3 }, req: { magic: 5 }, description: "Accélèrent la circulation du mana." }
+);
 const ATTACKS = [
   { id: "slash", name: "Frappe tranchante", type: "physical", damage: "slash", power: 9, accuracy: 92, mana: 0, weapon: "sword", desc: "Une attaque fiable." },
   { id: "pierce", name: "Estoc précis", type: "physical", damage: "pierce", power: 8, accuracy: 97, mana: 0, weapon: "spear", desc: "Précision élevée." },
@@ -102,8 +142,287 @@ function totals() {
   const c = save.run, eq = equippedBonuses(), s = { ...c.stats };
   Object.entries(eq).forEach(([k, v]) => s[k] = (s[k] || 0) + v);
   return { ...s, accuracy: 80 + s.agility * 2 + (eq.accuracy || 0), evasion: 3 + s.agility + (eq.evasion || 0), crit: 3 + s.luck * .4 + (eq.crit || 0), critDamage: 150 + s.strength * 2 + (eq.critDamage || 0), attackSpeed: 10 + s.agility + (eq.attackSpeed || 0), defense: s.constitution * 2 + (eq.defense || 0), lifeRegen: Math.floor(s.constitution / 5) + (eq.lifeRegen || 0), maxMana: 25 + s.magic * 4 + s.knowledge * 2 + (eq.maxMana || 0), manaRegen: 2 + Math.floor(s.magic / 5) + (eq.manaRegen || 0), magicPower: s.magic * 2 + s.knowledge + (eq.magicPower || 0), magicResistance: s.magic + s.knowledge / 2 + (eq.magicResistance || 0), slashRes: Math.floor(s.constitution / 2) + (eq.slashRes || 0), pierceRes: Math.floor(s.agility / 2) + (eq.pierceRes || 0), bluntRes: Math.floor(s.strength / 3) + (eq.bluntRes || 0), fireRes: Math.floor(s.magic / 3) + (eq.fireRes || 0), iceRes: Math.floor(s.magic / 3) + (eq.iceRes || 0), windRes: Math.floor(s.agility / 3) + (eq.windRes || 0), earthRes: Math.floor(s.constitution / 3) + (eq.earthRes || 0) };
-  return s;
+  const inherited = inheritedBonuses();
+  return {
+    ...s,
+    accuracy: 80 + s.agility * 2 + (eq.accuracy || 0) + (inherited.accuracy || 0),
+    evasion: 3 + s.agility + (eq.evasion || 0) + (inherited.evasion || 0),
+    crit: 3 + s.luck * .4 + (eq.crit || 0),
+    critDamage: 150 + s.strength * 2 + (eq.critDamage || 0),
+    attackSpeed: 10 + s.agility + (eq.attackSpeed || 0),
+    defense: s.constitution * 2 + (eq.defense || 0) + (inherited.defense || 0),
+    lifeRegen: Math.floor(s.constitution / 5) + (eq.lifeRegen || 0) + (inherited.lifeRegen || 0),
+    maxMana: 25 + s.magic * 4 + s.knowledge * 2 + (eq.maxMana || 0),
+    manaRegen: 2 + Math.floor(s.magic / 5) + (eq.manaRegen || 0) + (c.techniqueMastery?.concentration || 0) * .5 + (inherited.manaRegen || 0),
+    magicPower: s.magic * 2 + s.knowledge + (eq.magicPower || 0) + (inherited.magicPower || 0),
+    magicResistance: s.magic + s.knowledge / 2 + (eq.magicResistance || 0),
+    slashRes: Math.floor(s.constitution / 2) + (eq.slashRes || 0),
+    pierceRes: Math.floor(s.agility / 2) + (eq.pierceRes || 0),
+    bluntRes: Math.floor(s.strength / 3) + (eq.bluntRes || 0) + (inherited.bluntRes || 0),
+    fireRes: Math.floor(s.magic / 3) + (eq.fireRes || 0) + (inherited.fireRes || 0),
+    iceRes: Math.floor(s.magic / 3) + (eq.iceRes || 0) + (inherited.iceRes || 0),
+    windRes: Math.floor(s.agility / 3) + (eq.windRes || 0) + (inherited.windRes || 0),
+    earthRes: Math.floor(s.constitution / 3) + (eq.earthRes || 0) + (inherited.earthRes || 0),
+    damage: inherited.damage || 0
+  };
 }
+
+let activeActionTab = "study";
+function ensureSaveShape() {
+  save.legacy ||= newLegacy();
+  save.legacy.masteryBonuses ||= {};
+  save.legacy.talents ||= [];
+  save.legacy.unlockedClasses ||= ["none"];
+  save.legacy.unlockedJobs ||= ["none"];
+  normalizeHeritage();
+  if (!save.run) return;
+  const r = save.run;
+  r.stats ||= Object.fromEntries(STATS.map(([id]) => [id, 3]));
+  r.maxStats ||= { ...r.stats };
+  r.inventory ||= {};
+  r.equipment ||= {};
+  r.weaponMastery ||= emptyMastery(Object.keys(WEAPONS));
+  r.elementMastery ||= emptyMastery(Object.keys(ELEMENTS));
+  Object.keys(WEAPONS).forEach(id => r.weaponMastery[id] ||= { xp: 0 });
+  Object.keys(ELEMENTS).forEach(id => r.elementMastery[id] ||= { xp: 0 });
+  r.techniqueMastery ||= { concentration: 0 };
+  r.discoveredZones ||= [];
+  r.log ||= [];
+  r.learned ||= ["slash"];
+  r.equippedAttacks ||= ["slash", null, null, null];
+  r.shopStock ||= ["iron-sword", "leather-hood", "health-potion", "old-gem"];
+  r.masteryLevels ||= {};
+  Object.keys(MASTERY_DOMAINS).forEach(id => { r.masteryLevels[id] = heritageProgress(id, r).level; });
+}
+ensureSaveShape();
+function inheritedBonuses() {
+  const out = {};
+  Object.entries(save.legacy.heritageDomains || {}).forEach(([id, domain]) => {
+    if (WEAPONS[id] || ELEMENTS[id]) return;
+    Object.entries(domain.permanent || {}).forEach(([key, value]) => { out[key] = (out[key] || 0) + value; });
+  });
+  return out;
+}
+function inheritedDomainBonuses(id) { return save.legacy.heritageDomains?.[id]?.permanent || {}; }
+const HERITAGE_RANK_VALUES = {
+  sword: [1, 2, 3, 4, 5, 6, 7], axe: [1, 2, 3, 4, 5, 6, 7],
+  hammer: [1, 2, 3, 4, 5, 6, 7], spear: [1, 2, 3, 4, 5, 6, 7],
+  bow: [1, 2, 3, 4, 5, 6, 7], dagger: [1, 2, 3, 4, 5, 6, 7],
+  unarmed: [1, 2, 3, 4, 5, 6, 7], catalyst: [1, 2, 3, 4, 5, 6, 7],
+  fire: [1, 2, 3, 4, 5, 6, 7], ice: [1, 2, 3, 4, 5, 6, 7],
+  wind: [1, 2, 3, 4, 5, 6, 7], earth: [1, 2, 3, 4, 5, 6, 7],
+  class: [1, 2, 3, 4, 5, 6, 7], farmer: [1, 2, 3, 4, 5, 6, 7],
+  merchant: [1, 2, 3, 4, 5, 6, 7], scholar: [1, 2, 3, 4, 5, 6, 7],
+  blacksmith: [1, 2, 3, 4, 5, 6, 7], concentration: [1, 2, 3, 4, 5, 6, 7]
+};
+function heritageRankValue(id, rank) {
+  const values = HERITAGE_RANK_VALUES[id] || HERITAGE_RANK_VALUES.class;
+  return values[Math.max(0, Math.min(MASTERY_LEVELS.length - 1, rank))];
+}
+function heritageProgress(id, run) {
+  if (!run) return { xp: 0, level: 0 };
+  if (WEAPONS[id]) return { xp: run.weaponMastery?.[id]?.xp || 0, level: level(run.weaponMastery?.[id]?.xp || 0) };
+  if (ELEMENTS[id]) return { xp: run.elementMastery?.[id]?.xp || 0, level: level(run.elementMastery?.[id]?.xp || 0) };
+  if (id === "class") return { xp: run.classXP || 0, level: level(run.classXP || 0) };
+  if (id === "concentration") return { xp: (run.techniqueMastery?.concentration || 0) * 8, level: level((run.techniqueMastery?.concentration || 0) * 8) };
+  return { xp: run.jobId === id ? run.jobXP || 0 : 0, level: level(run.jobId === id ? run.jobXP || 0 : 0) };
+}
+function heritageAcquired(id, rank) {
+  const multiplier = heritageRankValue(id, rank);
+  return Object.fromEntries(Object.entries(masteryDomain(id).passive).map(([key, value]) => [key, +(value * multiplier).toFixed(2)]));
+}
+function addValues(left = {}, right = {}) {
+  const result = { ...left };
+  Object.entries(right).forEach(([key, value]) => { result[key] = +((result[key] || 0) + value).toFixed(2); });
+  return result;
+}
+function normalizeHeritage() {
+  const legacy = save.legacy;
+  legacy.heritageDomains ||= {};
+  if (legacy.heritageMigrationVersion !== 1) {
+    Object.entries(legacy.masteryBonuses || {}).forEach(([id, old]) => {
+      if (legacy.heritageDomains[id]) return;
+      const migratedValues = { ...(old.values || {}) };
+      if (migratedValues.workYield !== undefined) {
+        migratedValues.workGold = migratedValues.workYield;
+        delete migratedValues.workYield;
+      }
+      legacy.heritageDomains[id] = {
+        currentLevel: 0,
+        lastLevel: Number.isFinite(old.level) ? old.level : 0,
+        lastXp: Number.isFinite(old.bestXp) ? old.bestXp : 0,
+        lastAcquired: {},
+        permanent: migratedValues
+      };
+    });
+    legacy.heritageMigrationVersion = 1;
+  }
+  if (legacy.heritageMigrationVersion !== 2) {
+    Object.entries(legacy.masteryBonuses || {}).forEach(([id, old]) => {
+      const domain = legacy.heritageDomains[id];
+      if (!domain || Object.keys(domain.lastAcquired || {}).length) return;
+      domain.lastLevel = Number.isFinite(old.level) ? old.level : domain.lastLevel;
+      domain.lastXp = Number.isFinite(old.bestXp) ? old.bestXp : domain.lastXp;
+      domain.lastAcquired = { ...(domain.permanent || {}) };
+    });
+    legacy.heritageMigrationVersion = 2;
+  }
+  Object.keys(MASTERY_DOMAINS).forEach(id => {
+    legacy.heritageDomains[id] ||= { currentLevel: 0, lastLevel: 0, lastXp: 0, lastAcquired: {}, permanent: {} };
+    const domain = legacy.heritageDomains[id];
+    domain.currentLevel = Number.isFinite(domain.currentLevel) ? domain.currentLevel : 0;
+    domain.lastLevel = Number.isFinite(domain.lastLevel) ? domain.lastLevel : 0;
+    domain.lastXp = Number.isFinite(domain.lastXp) ? domain.lastXp : 0;
+    domain.lastAcquired ||= {};
+    domain.permanent ||= {};
+  });
+}
+function recordLegacyMasteriesDeterministically(run) {
+  normalizeHeritage();
+  Object.keys(MASTERY_DOMAINS).forEach(id => {
+    const progress = heritageProgress(id, run);
+    const acquired = heritageAcquired(id, progress.level);
+    const domain = save.legacy.heritageDomains[id];
+    domain.currentLevel = 0;
+    domain.lastLevel = progress.level;
+    domain.lastXp = progress.xp;
+    domain.lastAcquired = acquired;
+    domain.permanent = addValues(domain.permanent, acquired);
+  });
+  save.legacy.masteryBonuses = Object.fromEntries(Object.entries(save.legacy.heritageDomains).map(([id, domain]) => [id, { level: domain.lastLevel, bestXp: domain.lastXp, values: { ...domain.permanent } }]));
+}
+function masteryDomain(id) { return MASTERY_DOMAINS[id] || { label: id, source: "Autres", passive: {} }; }
+function masteryValue(id, xp) {
+  const rank = level(xp);
+  return Object.fromEntries(Object.entries(masteryDomain(id).passive).map(([key, value]) => [key, +(value * rank).toFixed(2)]));
+}
+function gainMastery(group, id, amount) {
+  const mastery = save.run[group][id] ||= { xp: 0 };
+  mastery.xp += amount;
+  save.run.masteryLevels ||= {};
+  save.run.masteryLevels[id] = level(mastery.xp);
+}
+function fmtPassiveValues(values) {
+  return Object.entries(values).map(([key, value]) => `${value >= 0 ? "+" : ""}${value} ${STAT_LABELS[key] || PASSIVE_LABELS[key] || key}`).join(", ") || "Aucun effet";
+}
+function recordLegacyMasteries(r) {
+  const domains = [...Object.entries(r.weaponMastery || {}), ...Object.entries(r.elementMastery || {}), ["class", { xp: r.classXP || 0 }], ...Object.entries({ farmer: r.jobId === "farmer" ? { xp: r.jobXP || 0 } : { xp: 0 }, merchant: r.jobId === "merchant" ? { xp: r.jobXP || 0 } : { xp: 0 }, scholar: r.jobId === "scholar" ? { xp: r.jobXP || 0 } : { xp: 0 }, blacksmith: r.jobId === "blacksmith" ? { xp: r.jobXP || 0 } : { xp: 0 } }), ["concentration", { xp: (r.techniqueMastery?.concentration || 0) * 8 }]];
+  domains.forEach(([id, mastery]) => {
+    if (!masteryDomain(id) || level(mastery.xp) < 1) return;
+    const values = masteryValue(id, mastery.xp);
+    const existing = save.legacy.masteryBonuses[id];
+    if (!existing || level(existing.bestXp) < level(mastery.xp)) save.legacy.masteryBonuses[id] = { bestXp: mastery.xp, level: level(mastery.xp), values };
+  });
+}
+function masteryRows() {
+  const current = save.run ? [...Object.entries(save.run.weaponMastery), ...Object.entries(save.run.elementMastery), ["class", { xp: save.run.classXP }], [save.run.jobId, { xp: save.run.jobXP }], ["concentration", { xp: (save.run.techniqueMastery?.concentration || 0) * 8 }]] : [];
+  return Object.entries(MASTERY_DOMAINS).map(([id, domain]) => {
+    const active = current.find(([key]) => key === id)?.[1]?.xp || 0;
+    const inherited = save.legacy.masteryBonuses[id];
+    return `<article class="mastery-card"><header><strong>${domain.label}</strong><span class="tag">${domain.source}</span></header><p>${id === "concentration" ? "Régénération et efficacité de récupération du mana." : `Bonus permanent : ${fmtPassiveValues(domain.passive)} par rang.`}</p><small class="muted">Progression actuelle : ${MASTERY_LEVELS[level(active)]} (${active} XP) · Hérité : ${inherited ? `${MASTERY_LEVELS[inherited.level]} · ${fmtPassiveValues(inherited.values)}` : "aucun"}</small></article>`;
+  }).join("");
+}
+function deterministicMasteryRows() {
+  return Object.entries(MASTERY_DOMAINS).map(([id, domain]) => {
+    const active = heritageProgress(id, save.run);
+    const inherited = save.legacy.heritageDomains[id];
+    const total = inherited.permanent || {};
+    if (!Object.values(total).some(value => value > 0) && active.level === 0) return "";
+    const effect = id === "class"
+      ? `+${total.lifeExpectancy || 0} ans d'espérance de vie`
+      : id === "farmer" || id === "merchant" || id === "blacksmith"
+        ? `+${total.workGold || 0} or par travail dans ce métier`
+        : fmtPassiveValues(total);
+    return `<article class="mastery-card"><header><strong>${domain.label}</strong><span class="tag">${domain.source}</span></header><p>Rang actuel : ${MASTERY_LEVELS[active.level]} (${active.xp} XP)</p><p>Rang atteint lors de la dernière vie : <b>${MASTERY_LEVELS[inherited.lastLevel]}</b></p><p>Bonus acquis lors de la dernière génération : <b>${fmtPassiveValues(inherited.lastAcquired)}</b></p><p>Bonus permanent total : <b>${fmtPassiveValues(total)}</b></p><small class="muted">Effet concret : ${effect}</small></article>`;
+  }).join("");
+}
+masteryRows = deterministicMasteryRows;
+function actionButton(activity, id, extra) {
+  return `<article class="action-card"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${extra || fmtBonuses(activity.gains)} · 1 an</small><button class="primary-button" data-action="${id}">Effectuer</button></article>`;
+}
+function actionsMarkup() {
+  const subTabs = [["study", "Études"], ["training", "Entraînement"], ["exploration", "Exploration"], ["work", "Travailler"], ["rest", "Se reposer"]];
+  const controls = `<div class="subtabs">${subTabs.map(([id, name]) => `<button class="tab ${activeActionTab === id ? "active" : ""}" data-action-tab="${id}">${name}</button>`).join("")}</div>`;
+  let content = "";
+  if (activeActionTab === "study") content = studyMarkup();
+  if (activeActionTab === "training") content = trainingMarkup();
+  if (activeActionTab === "exploration") content = explorationMarkup();
+  if (activeActionTab === "work") content = `<div class="panel"><h2>Travailler</h2><p class="muted">Les revenus et le rendement progressent avec la maîtrise du métier.</p><div class="action-grid">${actionButton({ name: `Travail de ${JOBS[save.run.jobId].name}`, description: `Rendement estimé : ${estimatedWork()} or.`, gains: {} }, "work", `${estimatedWork()} or · maîtrise ${masteryText({ xp: save.run.jobXP })}`)}</div></div>`;
+  if (activeActionTab === "rest") content = `<div class="panel"><h2>Se reposer</h2><p class="muted">Récupère les PV et le mana et peut guérir une maladie.</p><div class="action-grid">${actionButton({ name: "Repos réparateur", description: "Récupération avec une chance de guérison.", gains: {} }, "rest", "PV +18 · mana +12 · 1 an")}</div></div>`;
+  return `<div class="panel"><h2>Actions</h2><p class="muted">Chaque action principale fait avancer le personnage d'une année. Les cinq sous-onglets regroupent toutes les activités.</p>${controls}</div>${content}`;
+}
+function renderGame() {
+  ensureSaveShape();
+  const tabs = [["summary", "Résumé"], ["actions", "Actions"], ["classjob", "Classes / métiers"], ["market", "Commerce"], ["inventory", "Inventaire"], ["equipment", "Équipement"], ["combat", "Combat"], ["stats", "Stats combat"], ["legacy", "Héritage"]];
+  const views = { summary: summaryMarkup, actions: actionsMarkup, classjob: classJobMarkup, market: marketMarkup, inventory: inventoryMarkup, equipment: equipmentMarkup, combat: combatMarkup, stats: statsMarkup, legacy: legacyMarkup };
+  document.querySelector("#tabs").innerHTML = tabs.map(([id, name]) => `<button class="tab ${activeTab === id ? "active" : ""}" data-tab="${id}">${name}</button>`).join("");
+  document.querySelector("#tab-content").innerHTML = views[activeTab] ? views[activeTab]() : actionsMarkup();
+  document.querySelector("#event-log").innerHTML = save.run.log.map(x => `<li>${esc(x)}</li>`).join("");
+}
+function renderCreate() {
+  ensureSaveShape();
+  document.querySelector("#create-screen").classList.toggle("hidden", Boolean(save.run));
+  document.querySelector("#game-screen").classList.toggle("hidden", !save.run);
+  if (save.run) return renderGame();
+  document.querySelector("#class-options").innerHTML = optionMarkup(CLASSES, save.legacy.unlockedClasses, "class");
+  document.querySelector("#job-options").innerHTML = optionMarkup(JOBS, save.legacy.unlockedJobs, "job");
+  const tags = [...save.legacy.unlockedClasses.filter(id => id !== "none").map(id => CLASSES[id].name), ...save.legacy.unlockedJobs.filter(id => id !== "none").map(id => JOBS[id].name), ...Object.keys(save.legacy.masteryBonuses)];
+  document.querySelector("#legacy-preview").innerHTML = tags.length ? `<div class="tag-list">${tags.map(t => `<span class="tag">${esc(CLASSES[t]?.name || JOBS[t]?.name || masteryDomain(t).label || t)}</span>`).join("")}</div>` : "<p>Aucun héritage encore. La première vie commence sans spécialisation.</p>";
+}
+function summaryMarkup() {
+  const r = save.run, s = totals();
+  return `<div class="dashboard"><div class="panel"><p class="eyebrow">Run actuelle</p><h2>${esc(r.name)} <span class="muted">· ${r.age} ans</span></h2><div class="stat-grid">${STATS.map(([id, name]) => `<div class="stat"><span>${name}</span><strong>${s[id].toFixed(1)}</strong></div>`).join("")}</div><p class="hp">PV ${Math.round(r.hp)} / ${r.maxHp}</p><p class="mana">Mana ${Math.round(r.mana)} / ${Math.round(s.maxMana)}</p></div><div class="panel"><h2>Passifs hérités</h2><div class="item-grid">${masteryRows()}</div></div></div>`;
+}
+function studyMarkup() {
+  return `<div class="panel"><h2>Études</h2><div class="action-grid">${actionButton({ name: "Études générales", description: "Développer le Savoir et la Magie.", gains: { knowledge: .25, magic: .2 } }, "study:general")}${actionButton({ name: "Étude du mana", description: "Comprendre les flux et préparer les techniques magiques.", gains: { magic: .35, knowledge: .15 } }, "study:mana")}${Object.entries(ELEMENTS).map(([id, name]) => actionButton({ name: `Étude élémentaire : ${name}`, description: `Renforcer l'affinité ${name}.`, gains: { knowledge: .1 } }, `study:element-${id}`, `${masteryText(save.run.elementMastery[id])} · +0,1 Savoir`)).join("")}</div></div>`;
+}
+function trainingMarkup() {
+  const weapons = Object.entries(WEAPONS).map(([id, name]) => actionButton({ name: `Maîtrise : ${name}`, description: `Développer l'efficacité avec cette catégorie.`, gains: { agility: .1 } }, `train:weapon-${id}`, `${masteryText(save.run.weaponMastery[id])} · bonus hérité cumulatif`)).join("");
+  return `<div class="panel"><h2>Entraînement</h2><div class="action-grid">${actionButton({ name: "Développement physique", description: "Renforcer Force, Agilité et Constitution.", gains: { strength: .22, agility: .16, constitution: .22 } }, "train:physical")}${actionButton({ name: "Techniques de base", description: "Pratiquer le combat à mains nues.", gains: { strength: .1 } }, "train:weapon-unarmed", `${masteryText(save.run.weaponMastery.unarmed)}`)}${weapons}${save.run.classId !== "none" ? actionButton({ name: "Technique de classe", description: "Faire progresser la maîtrise de classe.", gains: {} }, "train:class", masteryText({ xp: save.run.classXP })) : ""}${actionButton({ name: "Concentration du mana", description: "Améliorer la récupération et l'efficacité du mana.", gains: { magic: .2 } }, "train:concentration", `Niveau ${save.run.techniqueMastery.concentration} · régénération +${(save.run.techniqueMastery.concentration * .5).toFixed(1)}`)}</div></div>`;
+}
+function explorationMarkup() {
+  return `<div class="panel"><h2>Exploration</h2><div class="action-grid">${actionButton({ name: "Explorer les environs", description: "Chercher des ressources et des objets.", gains: { agility: .2, luck: .15 } }, "explore", "Butin possible · 1 an")}</div><div class="zone-grid">${ZONES.map(z => `<article class="zone-card"><header><strong>${z.name}</strong><span class="tag">Difficulté ${z.difficulty}</span></header><p>${z.description}</p><small class="muted">Récompenses : ${z.reward.map(id => item(id)?.name || id).join(", ")}</small></article>`).join("")}</div></div>`;
+}
+function equipmentMarkup() {
+  const s = totals();
+  return `<div class="panel"><h2>Équipement</h2><div class="item-grid">${Object.entries(SLOTS).map(([slot, label]) => `<article class="item-card"><header><strong>${label}</strong></header><p>${save.run.equipment[slot] ? item(save.run.equipment[slot]).name : "Emplacement vide"}</p><small class="muted">${save.run.equipment[slot] ? fmtBonuses(item(save.run.equipment[slot]).bonus) : "Choisissez un objet dans l'inventaire."}</small></article>`).join("")}</div><h3>Objets équipables</h3>${inventoryMarkup(true)}</div>`;
+}
+function inventoryMarkup(embedded = false) {
+  const equipment = Object.entries(save.run.inventory).map(([id, amount]) => { const i = item(id); return i?.kind === "equipment" ? `<article class="item-card"><header><strong>${i.name}</strong><span class="tag">${i.rarity}</span></header><p>${i.description || fmtBonuses(i.bonus)}<br>${Object.entries(i.req || {}).map(([k,v]) => `${statName(k)} ${v}`).join(", ") || "Aucun prérequis"}</p><button class="mini-button" data-equip="${id}">Équiper</button></article>` : ""; }).join("");
+  const other = Object.entries(save.run.inventory).map(([id, amount]) => { const i = item(id); return i?.kind !== "equipment" ? `<article class="item-card"><header><strong>${i.name}</strong><span class="tag">x${amount}</span></header><p>${i.description || fmtBonuses(i.bonus)}</p>${i.kind === "consumable" ? `<button class="mini-button" data-use="${id}">Utiliser</button>` : ""}</article>` : ""; }).join("");
+  return `<div class="${embedded ? "" : "panel"}">${embedded ? "" : "<h2>Inventaire</h2>"}<div class="item-grid">${equipment || "<p class=\"empty\">Aucun équipement dans l'inventaire.</p>"}${other}</div></div>`;
+}
+function marketMarkup() { const stock = [...new Set([...(save.run.shopStock || []), ...ITEMS.filter(i => i.kind === "equipment").slice(0, 4).map(i => i.id)])]; return `<div class="panel"><h2>Commerce</h2><div class="item-grid">${stock.map(id => { const i = item(id); return `<article class="item-card"><header><strong>${i.name}</strong><span class="price">${i.price} or</span></header><p>${i.description || fmtBonuses(i.bonus)}</p><button class="mini-button" data-buy="${id}" ${save.run.gold < i.price ? "disabled" : ""}>Acheter</button></article>`; }).join("")}</div></div>`; }
+function statsMarkup() { const s = totals(); return `<div class="panel"><h2>Statistiques de combat</h2><div class="stat-grid">${["accuracy","evasion","crit","attackSpeed","defense","lifeRegen","maxMana","manaRegen","magicPower","magicResistance","fireRes","iceRes","windRes","earthRes"].map(k => `<div class="stat"><span>${STAT_LABELS[k] || k}</span><strong>${Number(s[k]).toFixed(1)}</strong></div>`).join("")}</div></div>`; }
+function legacyMarkup() { return `<div class="panel"><h2>Héritage évolutif</h2><p class="muted">Les meilleurs rangs de chaque vie alimentent un bonus permanent. Les maîtrises actives de la génération actuelle restent indépendantes et repartent à zéro.</p><div class="item-grid">${masteryRows()}</div></div>`; }
+function classJobMarkup() { const r = save.run; return `<div class="two-columns"><div class="panel"><h2>Classe</h2><p><b>${CLASSES[r.classId].name}</b> · ${CLASSES[r.classId].description}</p><p>Maîtrise : ${masteryText({ xp: r.classXP })}</p></div><div class="panel"><h2>Métier</h2><p><b>${JOBS[r.jobId].name}</b> · ${JOBS[r.jobId].description}</p><p>Maîtrise : ${masteryText({ xp: r.jobXP })}</p></div></div>`; }
+function combatMarkup() { return `<div class="panel"><h2>Combat</h2><p class="muted">Les rencontres sont déclenchées depuis Exploration. Les bonus hérités sont appliqués aux statistiques de combat.</p></div>`; }
+function doAction(id) {
+  const r = save.run;
+  if (id.startsWith("study:")) {
+    const type = id.slice(6);
+    if (type.startsWith("element-")) gainMastery("elementMastery", type.slice(8), 3);
+    r.studyActions++;
+    return completeAction("Étude accomplie.", type === "general" ? { knowledge: .25, magic: .2 } : { knowledge: .15, magic: .2 });
+  }
+  if (id.startsWith("train:")) {
+    const type = id.slice(6);
+    if (type.startsWith("weapon-")) gainMastery("weaponMastery", type.slice(7), 2);
+    if (type === "class") r.classXP += .7;
+    if (type === "concentration") r.techniqueMastery.concentration++;
+    return completeAction("Entraînement accompli.", { strength: .1, agility: .1 });
+  }
+  if (id === "explore") { r.explorations++; const found = Math.random() < .7 ? ["ore", "old-gem", "health-potion"][Math.floor(Math.random() * 3)] : null; if (found) { addItem(found); r.itemsFound++; } return completeAction(found ? `Exploration : ${item(found).name} trouvé.` : "Exploration : rien trouvé.", { agility: .2, luck: .15 }); }
+  if (id === "work") { const job = JOBS[r.jobId], earnings = estimatedWork(); r.gold += earnings; save.legacy.goldEarned += earnings; r.workActions++; r.jobXP += 2; if (job.stat) gainStat(job.stat, .2); return completeAction(`Travail de ${job.name} : +${earnings} or.`); }
+  if (id === "rest") return rest();
+}
+function equip(id) { const i = item(id), s = totals(); if (!i || !i.req || Object.entries(i.req).some(([k,v]) => s[k] < v)) return notify("Prérequis statistiques non atteint."); save.run.equipment[i.slot] = id; persist(); renderGame(); }
+function buy(id) { const i = item(id); if (!i || save.run.gold < i.price) return notify("Or insuffisant."); save.run.gold -= i.price; addItem(id); persist(); renderGame(); }
+function useItem(id) { const i = item(id); if (!i || !qty(id)) return; if (i.effect?.hp) save.run.hp = Math.min(save.run.maxHp, save.run.hp + i.effect.hp); if (i.effect?.mana) save.run.mana = Math.min(totals().maxMana, save.run.mana + i.effect.mana); removeItem(id); persist(); renderGame(); }
+function startLife(e) { e.preventDefault(); const data = new FormData(e.target), r = newRun(); r.name = String(data.get("name")).trim(); r.classId = data.get("class"); r.jobId = data.get("job"); r.talents = []; Object.values(save.legacy.heritageDomains || {}).forEach(domain => Object.entries(domain.permanent || {}).forEach(([key, value]) => { if (STATS.some(([id]) => id === key)) r.stats[key] += value; })); if (CLASSES[r.classId].stat) r.stats[CLASSES[r.classId].stat]++; if (JOBS[r.jobId].stat) r.stats[JOBS[r.jobId].stat]++; r.maxStats = { ...r.stats }; save.run = r; log("Naissance : les passifs hérités influencent cette génération."); persist(); renderCreate(); }
+function die(reason) { const r = save.run; log(reason); save.legacy.deaths++; recordLegacyMasteries(r); save.legacy.bestAge = Math.max(save.legacy.bestAge, r.age); recordLegacyMasteries(r); Object.keys(r.maxStats || {}).forEach(k => save.legacy.history[k] = Math.max(save.legacy.history[k] || 0, r.maxStats[k])); save.legacy.characters.unshift({ name: r.name, age: r.age, classId: r.classId, jobId: r.jobId, reason }); save.legacy.characters = save.legacy.characters.slice(0, 20); save.run = null; persist(); renderCreate(); }
+function abandonLife() { if (!save.run || !confirm("Mettre fin à cette run sans compter une mort ?")) return; save.legacy.abandoned++; save.run = null; persist(); renderCreate(); }
+renderCreate();
 function level(xp) { return Math.max(0, Math.min(MASTERY_LEVELS.length - 1, MASTERY_XP.reduce((n, threshold) => xp >= threshold ? n + 1 : n, 0) - 1)); }
 function masteryText(data) { return `${MASTERY_LEVELS[level(data.xp)]} (${data.xp} XP)`; }
 function log(text) { save.run.log.unshift(`${save.run.age} ans : ${text}`); save.run.log = save.run.log.slice(0, 60); }
@@ -127,12 +446,13 @@ function startLife(e) {
   e.preventDefault(); const data = new FormData(e.target), r = newRun(); r.classId = data.get("class"); r.jobId = data.get("job"); r.name = String(data.get("name")).trim();
   r.maxStats = { ...r.stats };
   save.legacy.talents.forEach(t => { r.stats[t.stat] += t.amount; }); r.talents = [...save.legacy.talents];
+  Object.values(save.legacy.masteryBonuses || {}).forEach(domain => Object.entries(domain.values || {}).forEach(([key, value]) => { if (STATS.some(([id]) => id === key)) r.stats[key] += value; }));
   const cls = CLASSES[r.classId], job = JOBS[r.jobId]; if (cls.stat) r.stats[cls.stat]++; if (job.stat) r.stats[job.stat]++;
   save.run = r; log("Naissance. Les héritages accélèrent l'apprentissage de cette génération."); persist(); renderCreate();
 }
 function advanceYear() {
   const r = save.run; r.age++; r.actions++; save.legacy.totalActions++; r.hp = Math.min(r.maxHp, r.hp + totals().lifeRegen); r.mana = Math.min(totals().maxMana, r.mana + totals().manaRegen);
-  if (r.age % 5 === 0) refreshShop(); if (Math.random() < Math.max(.03, .14 - totals().constitution * .006)) contractDisease(); progressDisease(); if (r.age >= 27 && Math.random() < .08 + (r.age - 27) * .1) die("Le vieillissement probabiliste vous emporte.");
+  if (r.age % 5 === 0) refreshShop(); if (Math.random() < Math.max(.03, .14 - totals().constitution * .006)) contractDisease(); progressDisease(); if (r.age >= lifeExpectancy() - 3 && Math.random() < .08 + (r.age - (lifeExpectancy() - 3)) * .1) die("Le vieillissement probabiliste vous emporte.");
   r.maxStats = { ...r.maxStats }; Object.keys(r.stats).forEach(k => r.maxStats[k] = Math.max(r.maxStats[k], r.stats[k])); unlockChecks(); persist();
 }
 function gainStat(key, amount = .1) { save.run.stats[key] = Math.min(20, save.run.stats[key] + amount); }
@@ -141,7 +461,7 @@ function contractDisease() { if (save.run.diseases.length) return; const names =
 function progressDisease() { save.run.diseases.forEach(d => { if (Math.random() < .35) { d.progression++; if (d.progression >= 4 && d.severity !== "Critique") { d.severity = d.severity === "Légère" ? "Modérée" : d.severity === "Modérée" ? "Grave" : "Critique"; d.progression = 0; log(`${d.name} s'aggrave : gravité ${d.severity}.`); } if (d.severity === "Critique" && Math.random() < .28) die(`La maladie ${d.name} devient mortelle.`); } }); }
 function rest() { advanceYear(); if (!save.run) return; const r = save.run; r.hp = Math.min(r.maxHp, r.hp + 18); r.mana = Math.min(totals().maxMana, r.mana + 12); if (r.diseases.length && Math.random() < .45) { const healed = r.diseases.shift(); log(`Repos efficace : ${healed.name} est guérie.`); } else log("Repos : récupération partielle."); persist(); renderGame(); }
 function actionMarkup() { return `<div class="panel"><h2>Actions principales</h2><p class="muted">Une action principale avance toujours d'une année. Les gains sont volontairement lents pour donner du poids aux choix.</p><div class="action-grid">${[["train","Entraînement physique","Force et Constitution.",{ strength:.25, constitution:.2 }],["study","Étude générale","Savoir et Magie sans affinité élémentaire.",{ knowledge:.25, magic:.2 }],["explore","Exploration générale","Objets, matériaux et découvertes incertaines.",{ agility:.2, luck:.15 }],["work","Travailler",`Gain estimé : ${estimatedWork()} or.`,{}],["rest","Se reposer","Récupération et chance de guérison.",{}]].map(([id,name,desc,g]) => `<article class="action-card"><h3>${name}</h3><p>${desc}</p><small class="muted">${fmtBonuses(g)} · 1 an</small><button class="primary-button" data-action="${id}">Effectuer</button></article>`).join("")}</div><h3>Études élémentaires ciblées</h3><div class="action-grid">${Object.entries(ELEMENTS).map(([id,name]) => `<article class="action-card"><h3>Sensibilité au ${name.toLowerCase()}</h3><p>Travaille uniquement l'affinité ${name} et débloque ses techniques.</p><small class="muted">${masteryText(save.run.elementMastery[id])}</small><button class="secondary-button" data-element-study="${id}">Étudier ${name}</button></article>`).join("")}</div></div>`; }
-function estimatedWork() { const r = save.run, job = JOBS[r.jobId]; return Math.round(job.work * (1 + level(r.jobXP) * .12) + (r.jobId === "merchant" ? Math.floor(r.gold * .03) : 0)); }
+function estimatedWork() { const r = save.run, job = JOBS[r.jobId]; return Math.round(job.work * (1 + level(r.jobXP) * .12) + (r.jobId === "merchant" ? Math.floor(r.gold * .03) : 0) + (inheritedDomainBonuses(r.jobId).workGold || 0)); }
 function doAction(id) {
   const r = save.run;
   if (id === "train") return completeAction("Entraînement discipliné (+progression lente).", { strength:.25, constitution:.2 });
@@ -182,9 +502,9 @@ function enemyFor(zone) { const hp = 42 + zone.difficulty * 18; return { name: z
 function startCombat(zoneId) { const z = ZONES.find(x => x.id === zoneId); combat = { zone: z, enemy: enemyFor(z), mode: document.querySelector("#combat-mode")?.value || "manual", turn: 1, log: [`Entrée dans ${z.name}.`], finished: false }; localStorage.setItem("retry-combat-mode", combat.mode); renderGame(); if (combat.mode === "auto") setTimeout(autoTurn, 80); }
 function chooseAttack(id) { if (!combat || combat.finished) return; const a = ATTACKS.find(x => x.id === id); resolveRound(a); }
 function autoTurn() { if (!combat || combat.finished) return; const e = combat.enemy; const usable = save.run.equippedAttacks.filter(Boolean).map(id => ATTACKS.find(a => a.id === id)).filter(a => a && save.run.mana >= a.mana); let a = usable.find(x => x.type === "heal" && save.run.hp < save.run.maxHp * .42) || usable.filter(x => x.type !== "heal").sort((x,y) => ((y.power || 0) - (e.res[y.damage] || 0)) - ((x.power || 0) - (e.res[x.damage] || 0)))[0] || usable[0]; resolveRound(a || ATTACKS[0]); }
-function resolveRound(a) { if (!a || !combat) return; const r = save.run, e = combat.enemy; let line = `Tour ${combat.turn} : ${a.name}.`; if (r.mana < a.mana) return notify("Mana insuffisant."); r.mana -= a.mana; if (a.type === "heal") { const heal = 16 + totals().magicPower * .4; r.hp = Math.min(r.maxHp, r.hp + heal); line += ` Soin de ${Math.round(heal)} PV.`; } else if (a.type === "buff") { r.statuses.push("guard"); line += " Protection active."; } else { if (Math.random() * 100 > a.accuracy + (totals().accuracy - 80)) line += " L'attaque échoue."; else { let damage = a.power + (a.type === "magic" ? totals().magicPower : totals().strength * .7); if (r.hp < r.maxHp * .3) { damage *= 1.15; line += " Berserker augmente les dégâts."; } if (e.hp < e.maxHp * .25) { damage *= 1.12; line += " Prédateur profite de la faiblesse."; } const resist = e.res[a.damage] || 0; damage *= Math.max(.2, 1 - resist / 100); const critical = Math.random() * 100 < totals().crit; if (critical) damage *= totals().critDamage / 100; damage = Math.max(1, Math.round(damage)); e.hp -= damage; line += ` ${damage} dégâts${critical ? " critiques" : ""} (${resist}% résistance appliquée).`; if (a.weapon) gainMastery("weaponMastery", a.weapon, 1); if (a.status?.length) { e.statuses.push(...a.status); line += ` ${a.status.map(x => STATUS[x]).join(", ")}.`; } } } combat.log.unshift(line); if (e.hp <= 0) return finishCombat(true); const enemyDamage = Math.max(1, Math.round(5 + combat.zone.difficulty * 2 - totals().defense * .18)); r.hp -= r.statuses.includes("guard") ? Math.round(enemyDamage * .55) : enemyDamage; combat.log.unshift(`${e.name} inflige ${enemyDamage} dégâts.`); if (r.hp <= 0 && Math.random() < .12) { r.hp = 1; combat.log.unshift("Dernier souffle : vous survivez à l'attaque mortelle."); } if (r.hp <= 0) return finishCombat(false); combat.turn++; persist(); renderGame(); if (combat.mode === "auto") setTimeout(autoTurn, 100); }
+function resolveRound(a) { if (!a || !combat) return; const r = save.run, e = combat.enemy, inherited = inheritedBonuses(), weaponLegacy = inheritedDomainBonuses(a.weapon), elementLegacy = inheritedDomainBonuses(a.element); let line = `Tour ${combat.turn} : ${a.name}.`; const cost = Math.max(0, Math.ceil(a.mana * (1 - (inherited.manaEfficiency || 0) / 100))); if (r.mana < cost) return notify("Mana insuffisant."); r.mana -= cost; if (a.type === "heal") { const heal = 16 + totals().magicPower * .4; r.hp = Math.min(r.maxHp, r.hp + heal); line += ` Soin de ${Math.round(heal)} PV.`; } else if (a.type === "buff") { r.statuses.push("guard"); line += " Protection active."; } else { if (Math.random() * 100 > a.accuracy + (totals().accuracy - 80) + (weaponLegacy.accuracy || 0)) line += " L'attaque échoue."; else { let damage = a.power + (a.type === "magic" ? totals().magicPower + (elementLegacy.magicPower || 0) : totals().strength * .7) + (weaponLegacy.damage || 0) + (inherited.damage || 0); if (r.hp < r.maxHp * .3) { damage *= 1.15; line += " Berserker augmente les dégâts."; } if (e.hp < e.maxHp * .25) { damage *= 1.12; line += " Prédateur profite de la faiblesse."; } const resist = e.res[a.damage] || 0; damage *= Math.max(.2, 1 - resist / 100); const critical = Math.random() * 100 < totals().crit; if (critical) damage *= totals().critDamage / 100; damage = Math.max(1, Math.round(damage)); e.hp -= damage; line += ` ${damage} dégâts${critical ? " critiques" : ""} (${resist}% résistance appliquée).`; if (a.weapon) gainMastery("weaponMastery", a.weapon, 1); if (a.status?.length) { e.statuses.push(...a.status); line += ` ${a.status.map(x => STATUS[x]).join(", ")}.`; } } } combat.log.unshift(line); if (e.hp <= 0) return finishCombat(true); const enemyDamage = Math.max(1, Math.round(5 + combat.zone.difficulty * 2 - totals().defense * .18)); r.hp -= r.statuses.includes("guard") ? Math.round(enemyDamage * .55) : enemyDamage; combat.log.unshift(`${e.name} inflige ${enemyDamage} dégâts.`); if (r.hp <= 0 && Math.random() < .12) { r.hp = 1; combat.log.unshift("Dernier souffle : vous survivez à l'attaque mortelle."); } if (r.hp <= 0) return finishCombat(false); combat.turn++; persist(); renderGame(); if (combat.mode === "auto") setTimeout(autoTurn, 100); }
 function finishCombat(win) { const r = save.run, z = combat.zone; combat.finished = true; if (win) { combat.log.unshift("Victoire ! Le butin remplace la récompense monétaire."); const reward = z.reward[Math.floor(Math.random() * z.reward.length)]; addItem(reward); r.itemsFound++; if (reward === "primal-heart") { save.legacy.primalHeart = true; if (!save.legacy.unlockedClasses.includes("primordial")) save.legacy.unlockedClasses.push("primordial"); combat.log.unshift("Le Cœur primordial débloque définitivement l'Arcaniste primordial."); } combat.log.unshift(`Butin : ${item(reward).name} x1.`); } else { combat.log.unshift("Défaite : le combat est mortel."); } log(win ? `Victoire dans ${z.name}.` : `Mort au combat dans ${z.name}.`); if (!win) return die("Vos blessures de combat sont mortelles."); advanceYear(); combat = null; persist(); renderGame(); }
-function die(reason) { const r = save.run; log(reason); save.legacy.deaths++; save.legacy.bestAge = Math.max(save.legacy.bestAge, r.age); Object.entries(r.maxStats).forEach(([k,v]) => save.legacy.history[k] = Math.max(save.legacy.history[k] || 0, v)); const talents = [{ name: `Vocation de ${CLASSES[r.classId].name}`, stat: CLASSES[r.classId].stat }, { name: `Connaissances de ${JOBS[r.jobId].name}`, stat: JOBS[r.jobId].stat }].filter(t => t.stat); talents.forEach(t => { if (!save.legacy.talents.some(x => x.name === t.name)) save.legacy.talents.push({ ...t, amount: Math.min(.9, .25 + level(r.classId === "none" ? r.jobXP : r.classXP) * .1), source: r.name }); }); save.legacy.characters.unshift({ name: r.name, classId: r.classId, jobId: r.jobId, age: r.age, classLevel: masteryText({ xp: r.classXP }), jobLevel: masteryText({ xp: r.jobXP }), achievements: [...r.learned], discoveries: r.itemsFound, reason }); save.legacy.characters = save.legacy.characters.slice(0, 20); save.run = null; combat = null; persist(); renderCreate(); notify("La run est terminée. Une nouvelle génération peut naître."); }
+function die(reason) { const r = save.run; log(reason); save.legacy.deaths++; recordLegacyMasteries(r); save.legacy.bestAge = Math.max(save.legacy.bestAge, r.age); Object.entries(r.maxStats).forEach(([k,v]) => save.legacy.history[k] = Math.max(save.legacy.history[k] || 0, v)); const talents = [{ name: `Vocation de ${CLASSES[r.classId].name}`, stat: CLASSES[r.classId].stat }, { name: `Connaissances de ${JOBS[r.jobId].name}`, stat: JOBS[r.jobId].stat }].filter(t => t.stat); talents.forEach(t => { if (!save.legacy.talents.some(x => x.name === t.name)) save.legacy.talents.push({ ...t, amount: Math.min(.9, .25 + level(r.classId === "none" ? r.jobXP : r.classXP) * .1), source: r.name }); }); save.legacy.characters.unshift({ name: r.name, classId: r.classId, jobId: r.jobId, age: r.age, classLevel: masteryText({ xp: r.classXP }), jobLevel: masteryText({ xp: r.jobXP }), achievements: [...r.learned], discoveries: r.itemsFound, reason }); save.legacy.characters = save.legacy.characters.slice(0, 20); save.run = null; combat = null; persist(); renderCreate(); notify("La run est terminée. Une nouvelle génération peut naître."); }
 function abandonLife() { if (!save.run || !confirm("Mettre fin à cette run sans compter une mort ?")) return; save.legacy.abandoned++; save.run = null; combat = null; persist(); renderCreate(); }
 document.querySelector("#create-form").addEventListener("submit", startLife);
 document.querySelector("#new-life").addEventListener("click", abandonLife);
@@ -327,5 +647,60 @@ function finishCombat(win) {
 function totals() {
   const c = save.run, eq = equippedBonuses(), s = { ...c.stats };
   Object.entries(eq).forEach(([k, v]) => s[k] = (s[k] || 0) + v);
-  return { ...s, accuracy: 80 + s.agility * 2 + (eq.accuracy || 0), evasion: 3 + s.agility + (eq.evasion || 0), crit: 3 + s.luck * .4 + (eq.crit || 0), critDamage: 150 + s.strength * 2 + (eq.critDamage || 0), attackSpeed: 10 + s.agility + (eq.attackSpeed || 0), defense: s.constitution * 2 + (eq.defense || 0), lifeRegen: Math.floor(s.constitution / 5) + (eq.lifeRegen || 0), maxMana: 25 + s.magic * 4 + s.knowledge * 2 + (eq.maxMana || 0), manaRegen: 2 + Math.floor(s.magic / 5) + (eq.manaRegen || 0) + (c.techniqueMastery?.concentration || 0) * .5, magicPower: s.magic * 2 + s.knowledge + (eq.magicPower || 0), magicResistance: s.magic + s.knowledge / 2 + (eq.magicResistance || 0), slashRes: Math.floor(s.constitution / 2) + (eq.slashRes || 0), pierceRes: Math.floor(s.agility / 2) + (eq.pierceRes || 0), bluntRes: Math.floor(s.strength / 3) + (eq.bluntRes || 0), fireRes: Math.floor(s.magic / 3) + (eq.fireRes || 0), iceRes: Math.floor(s.magic / 3) + (eq.iceRes || 0), windRes: Math.floor(s.agility / 3) + (eq.windRes || 0), earthRes: Math.floor(s.constitution / 3) + (eq.earthRes || 0) };
+  const inherited = inheritedBonuses();
+  return { ...s, accuracy: 80 + s.agility * 2 + (eq.accuracy || 0) + (inherited.accuracy || 0), evasion: 3 + s.agility + (eq.evasion || 0) + (inherited.evasion || 0), crit: 3 + s.luck * .4 + (eq.crit || 0), critDamage: 150 + s.strength * 2 + (eq.critDamage || 0), attackSpeed: 10 + s.agility + (eq.attackSpeed || 0), defense: s.constitution * 2 + (eq.defense || 0) + (inherited.defense || 0), lifeRegen: Math.floor(s.constitution / 5) + (eq.lifeRegen || 0) + (inherited.lifeRegen || 0), maxMana: 25 + s.magic * 4 + s.knowledge * 2 + (eq.maxMana || 0), manaRegen: 2 + Math.floor(s.magic / 5) + (eq.manaRegen || 0) + (c.techniqueMastery?.concentration || 0) * .5 + (inherited.manaRegen || 0), magicPower: s.magic * 2 + s.knowledge + (eq.magicPower || 0) + (inherited.magicPower || 0), magicResistance: s.magic + s.knowledge / 2 + (eq.magicResistance || 0), slashRes: Math.floor(s.constitution / 2) + (eq.slashRes || 0), pierceRes: Math.floor(s.agility / 2) + (eq.pierceRes || 0), bluntRes: Math.floor(s.strength / 3) + (eq.bluntRes || 0) + (inherited.bluntRes || 0), fireRes: Math.floor(s.magic / 3) + (eq.fireRes || 0) + (inherited.fireRes || 0), iceRes: Math.floor(s.magic / 3) + (eq.iceRes || 0) + (inherited.iceRes || 0), windRes: Math.floor(s.agility / 3) + (eq.windRes || 0) + (inherited.windRes || 0), earthRes: Math.floor(s.constitution / 3) + (eq.earthRes || 0) + (inherited.earthRes || 0), damage: inherited.damage || 0 };
 }
+
+function finalDoAction(id) {
+  const r = save.run;
+  if (id.startsWith("study:")) {
+    const type = id.slice(6);
+    if (type.startsWith("element-")) gainMastery("elementMastery", type.slice(8), 3);
+    r.studyActions++;
+    return completeAction("Étude accomplie.", type === "general" ? { knowledge: .25, magic: .2 } : { knowledge: .15, magic: .2 });
+  }
+  if (id.startsWith("train:")) {
+    const type = id.slice(6);
+    if (type.startsWith("weapon-")) gainMastery("weaponMastery", type.slice(7), 2);
+    if (type === "class") r.classXP += .7;
+    if (type === "concentration") r.techniqueMastery.concentration++;
+    return completeAction("Entraînement accompli.", { strength: .1, agility: .1 });
+  }
+  if (id === "explore") { r.explorations++; const found = Math.random() < .7 ? ["ore", "old-gem", "health-potion"][Math.floor(Math.random() * 3)] : null; if (found) { addItem(found); r.itemsFound++; } return completeAction(found ? `Exploration : ${item(found).name} trouvé.` : "Exploration : rien trouvé.", { agility: .2, luck: .15 }); }
+  if (id === "work") { const job = JOBS[r.jobId], earnings = estimatedWork(); r.gold += earnings; save.legacy.goldEarned += earnings; r.workActions++; r.jobXP += 2; if (job.stat) gainStat(job.stat, .2); return completeAction(`Travail de ${job.name} : +${earnings} or.`); }
+  if (id === "rest") return rest();
+}
+function lifeExpectancy() {
+  return 30 + (inheritedBonuses().lifeExpectancy || 0);
+}
+function finalRenderGame() {
+  ensureSaveShape();
+  const tabs = [["summary", "Résumé"], ["actions", "Actions"], ["classjob", "Classes / métiers"], ["market", "Commerce"], ["inventory", "Inventaire"], ["equipment", "Équipement"], ["combat", "Combat"], ["stats", "Stats combat"], ["legacy", "Héritage"]];
+  const views = { summary: summaryMarkup, actions: actionsMarkup, classjob: classJobMarkup, market: marketMarkup, inventory: inventoryMarkup, equipment: equipmentMarkup, combat: combatMarkup, stats: statsMarkup, legacy: legacyMarkup };
+  document.querySelector("#tabs").innerHTML = tabs.map(([id, name]) => `<button class="tab ${activeTab === id ? "active" : ""}" data-tab="${id}">${name}</button>`).join("");
+  document.querySelector("#tab-content").innerHTML = (views[activeTab] || actionsMarkup)();
+  document.querySelector("#event-log").innerHTML = save.run.log.map(x => `<li>${esc(x)}</li>`).join("");
+}
+function finalTrainingMarkup() {
+  const weapons = Object.entries(WEAPONS).map(([id, name]) => actionButton({ name: `Maîtrise : ${name}`, description: `Développer les dégâts, la précision ou l'efficacité des ${name.toLowerCase()}.`, gains: {} }, `train:weapon-${id}`, `${masteryText(save.run.weaponMastery[id])} · héritage : ${fmtPassiveValues(masteryDomain(id).passive)}`)).join("");
+  return `<div class="panel"><h2>Entraînement</h2><p class="muted">Les huit catégories d'armes, la classe et la Concentration du mana progressent indépendamment.</p><div class="action-grid">${actionButton({ name: "Développement physique", description: "Renforcer Force, Agilité et Constitution.", gains: { strength: .22, agility: .16, constitution: .22 } }, "train:physical")}${weapons}${save.run.classId !== "none" ? actionButton({ name: "Technique de classe", description: "Développer la spécialisation de la classe.", gains: {} }, "train:class", masteryText({ xp: save.run.classXP })) : ""}${actionButton({ name: "Concentration du mana", description: "Augmenter la régénération et l'efficacité de récupération du mana.", gains: {} }, "train:concentration", `Niveau ${save.run.techniqueMastery.concentration} · héritage : ${fmtPassiveValues(masteryDomain("concentration").passive)}`)}</div></div>`;
+}
+trainingMarkup = finalTrainingMarkup;
+function finalLegacyMarkup() {
+  return `<div class="panel"><h2>Héritage évolutif</h2><p class="muted">Chaque domaine conserve le meilleur rang atteint au cours des vies précédentes. Les valeurs sont cumulatives et n'effacent jamais les acquis.</p><div class="item-grid">${masteryRows()}</div></div><div class="panel"><h2>Historique</h2><p class="muted">${save.legacy.deaths} mort(s), ${save.legacy.abandoned} vie(s) abandonnée(s), record : ${save.legacy.bestAge} ans.</p></div>`;
+}
+legacyMarkup = finalLegacyMarkup;
+function finalSummaryMarkup() {
+  const r = save.run, s = totals();
+  return `<div class="dashboard"><div class="panel"><p class="eyebrow">Run actuelle</p><h2>${esc(r.name)} <span class="muted">· ${r.age} ans</span></h2><p class="muted">Espérance de vie de base : 30 ans · Potentiel hérité : +${inheritedBonuses().lifeExpectancy || 0} ans · Total : ${lifeExpectancy()} ans</p><div class="stat-grid">${STATS.map(([id, name]) => `<div class="stat"><span>${name}</span><strong>${s[id].toFixed(1)}</strong></div>`).join("")}</div><p class="hp">PV ${Math.round(r.hp)} / ${r.maxHp}</p><p class="mana">Mana ${Math.round(r.mana)} / ${Math.round(s.maxMana)}</p></div><div class="panel"><h2>Passifs hérités</h2><div class="item-grid">${masteryRows()}</div></div></div>`;
+}
+summaryMarkup = finalSummaryMarkup;
+recordLegacyMasteries = recordLegacyMasteriesDeterministically;
+renderGame = finalRenderGame;
+doAction = finalDoAction;
+persist();
+document.querySelector("#game-screen").addEventListener("click", e => {
+  const actionTab = e.target.closest("[data-action-tab]");
+  if (actionTab) { activeActionTab = actionTab.dataset.actionTab; activeTab = "actions"; renderGame(); }
+});
+if (save.run) renderGame();
