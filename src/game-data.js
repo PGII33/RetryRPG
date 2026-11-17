@@ -33,21 +33,23 @@ export const RES_KEYS = { slash: "slashRes", pierce: "pierceRes", blunt: "bluntR
 export const CLASSES = {
   none: { name: "Sans classe", description: "Une voie libre, sans bonus de spécialisation.", stat: null, unlock: () => true },
   warrior: { name: "Guerrier", description: "Force, défense physique et maîtrise des armes.", stat: "strength", unlock: s => s.run.maxStats.strength >= 6 },
-  knight: { name: "Chevalier", description: "Évolution du Guerrier spécialisée dans les épées.", stat: "strength", hidden: true, weapon: "sword", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.sword.xp >= 8 },
-  lancer: { name: "Lancier", description: "Évolution du Guerrier spécialisée dans les lances.", stat: "strength", hidden: true, weapon: "spear", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.spear.xp >= 8 },
-  archer: { name: "Archer", description: "Évolution du Guerrier spécialisée dans les arcs.", stat: "agility", hidden: true, weapon: "bow", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.bow.xp >= 8 },
+  knight: { name: "Chevalier", description: "Évolution du Guerrier spécialisée dans les épées.", stat: "strength", parent: "warrior", hidden: true, weapon: "sword", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.sword.xp >= 8 },
+  lancer: { name: "Lancier", description: "Évolution du Guerrier spécialisée dans les lances.", stat: "strength", parent: "warrior", hidden: true, weapon: "spear", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.spear.xp >= 8 },
+  archer: { name: "Archer", description: "Évolution du Guerrier spécialisée dans les arcs.", stat: "agility", parent: "warrior", hidden: true, weapon: "bow", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.bow.xp >= 8 },
   mage: { name: "Mage", description: "Mana, puissance magique et théorie arcanique.", stat: "magic", unlock: s => s.run.studyActions >= 4 },
-  fireMage: { name: "Mage de feu", description: "Spécialiste des sorts ardents et des dégâts prolongés.", stat: "magic", hidden: true, unlock: s => s.run.elementMastery.fire.xp >= 8 },
-  iceMage: { name: "Mage de glace", description: "Spécialiste du contrôle et du ralentissement.", stat: "magic", hidden: true, unlock: s => s.run.elementMastery.ice.xp >= 8 },
-  rogue: { name: "Voleur", description: "Précision, esquive et dagues.", stat: "agility", unlock: s => s.run.weaponMastery.dagger.xp >= 6 },
+  fireMage: { name: "Mage de feu", description: "Spécialiste des sorts ardents et des dégâts prolongés.", stat: "magic", element: "fire", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.fire.xp >= 8 },
+  iceMage: { name: "Mage de glace", description: "Spécialiste du contrôle et du ralentissement.", stat: "magic", element: "ice", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.ice.xp >= 8 },
+  windMage: { name: "Mage de vent", description: "Spécialiste des sorts rapides et de l'esquive.", stat: "magic", element: "wind", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.wind.xp >= 8 },
+  earthMage: { name: "Mage de terre", description: "Spécialiste des sorts lourds et de la résistance.", stat: "magic", element: "earth", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.earth.xp >= 8 },
+  rogue: { name: "Voleur", description: "Précision, esquive et dagues.", stat: "agility", parent: "warrior", hidden: true, weapon: "dagger", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.dagger.xp >= 6 },
   ranger: { name: "Rôdeur", description: "Exploration, arcs et survie.", stat: "constitution", unlock: s => s.run.explorations >= 3 },
   alchemist: { name: "Alchimiste", description: "Savoir, soins et consommables.", stat: "knowledge", unlock: s => s.run.itemsFound >= 4 },
-  primordial: { name: "Arcaniste primordial", description: "Affinité rare avec les quatre éléments.", stat: "magic", hidden: true, unlock: s => s.legacy.primalHeart === true }
+  primordial: { name: "Arcaniste primordial", description: "Affinité rare avec les quatre éléments.", stat: "magic", parent: "mage", hidden: true, unlock: s => s.legacy.primalHeart === true }
 };
 export const JOBS = {
   none: { name: "Sans métier", description: "Travail simple, revenus faibles.", stat: null, unlock: () => true, work: 12 },
   farmer: { name: "Fermier", description: "Agriculture : revenus stables et constitution.", stat: "constitution", unlock: s => s.run.workActions >= 3, work: 28 },
-  merchant: { name: "Marchand", description: "Commerce : meilleurs revenus et prix de vente.", stat: "luck", unlock: s => s.run.goldEarned >= 90, work: 38 },
+  merchant: { name: "Marchand", description: "Commerce : meilleurs revenus et prix de vente.", stat: "luck", unlock: s => s.legacy.goldEarned >= 90, work: 38 },
   scholar: { name: "Érudit", description: "Recherche : savoir, mana et progression élémentaire.", stat: "knowledge", unlock: s => s.run.studyActions >= 3, work: 18 },
   blacksmith: { name: "Forgeron", description: "Forge : matériaux, équipement et maîtrise des marteaux.", stat: "strength", unlock: s => s.run.materials >= 3, work: 32 }
 };
@@ -66,7 +68,7 @@ export const ITEMS = [
   { id: "guardian-mail", name: "Cotte du gardien", kind: "equipment", rarity: "Rare", slot: "chest", price: 120, sell: 65, bonus: { constitution: 2, defense: 7, slashRes: 5 }, req: { strength: 5, constitution: 6 } },
   { id: "traveler-boots", name: "Bottes de voyage", kind: "equipment", rarity: "Inhabituel", slot: "boots", price: 65, sell: 35, bonus: { agility: 1, evasion: 3, windRes: 3 }, req: { agility: 4 } },
   { id: "wisdom-ring", name: "Anneau de sagesse", kind: "equipment", rarity: "Rare", slot: "accessory1", price: 115, sell: 60, bonus: { knowledge: 2, maxMana: 12, magicPower: 3 }, req: { knowledge: 6 } },
-  { id: "primal-heart", name: "Cœur primordial", kind: "special", rarity: "Mythique", price: 0, sell: 250, bonus: { magic: 3, fireRes: 8, iceRes: 8, windRes: 8, earthRes: 8 }, req: {} },
+  { id: "primal-heart", name: "Cœur primordial", kind: "special", rarity: "Mythique", price: 0, sell: 250, classUnlock: "primordial", classWeapon: "primordial", bonus: { magic: 3, fireRes: 8, iceRes: 8, windRes: 8, earthRes: 8 }, req: {} },
   { id: "health-potion", name: "Potion de soin", kind: "consumable", rarity: "Commun", price: 28, sell: 10, effect: { hp: 25 }, description: "Restaure 25 PV.", stock: 3 },
   { id: "mana-potion", name: "Potion de mana", kind: "consumable", rarity: "Inhabituel", price: 46, sell: 17, effect: { mana: 18 }, description: "Restaure 18 mana.", stock: 2 },
   { id: "tonic-constitution", name: "Tonique de constitution", kind: "consumable", rarity: "Rare", price: 145, sell: 55, effect: { stat: "constitution", amount: 1 }, description: "Augmente durablement la Constitution.", stock: 1 },
@@ -121,6 +123,8 @@ export const ATTACKS = [
   { id: "alchemist-burst", name: "Décharge alchimique", type: "magic", damage: "magic", power: 14, accuracy: 92, mana: 6, classId: "alchemist", desc: "Une réaction offensive de l'Alchimiste." },
   { id: "fire-sphere", name: "Sphère ardente", type: "magic", damage: "fire", element: "fire", power: 19, accuracy: 90, mana: 9, classId: "fireMage", desc: "Une sphère de flammes du Mage de feu." },
   { id: "ice-spear", name: "Lance de glace", type: "magic", damage: "ice", element: "ice", power: 18, accuracy: 93, mana: 9, classId: "iceMage", desc: "Un projectile glacé du Mage de glace." },
+  { id: "wind-cyclone", name: "Cyclone tranchant", type: "magic", damage: "wind", element: "wind", power: 18, accuracy: 96, mana: 8, classId: "windMage", desc: "Un courant violent du Mage de vent." },
+  { id: "earth-shard", name: "Éclat tellurique", type: "magic", damage: "earth", element: "earth", power: 20, accuracy: 86, mana: 10, classId: "earthMage", desc: "Une masse de terre condensée." },
   { id: "origin-ray", name: "Rayon des origines", type: "magic", damage: "magic", power: 24, accuracy: 88, mana: 12, classId: "primordial", desc: "La puissance des quatre éléments réunis." }
 ];
 export const ZONES = [

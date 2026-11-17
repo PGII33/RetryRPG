@@ -13,7 +13,7 @@ test("loads the creation screen without runtime errors", async ({ page }) => {
   await page.reload();
 
   await expect(page.locator("#create-screen")).toBeVisible();
-  await expect(page.locator("#class-options input")).toHaveCount(6);
+  await expect(page.locator("#class-options input")).toHaveCount(5);
   await expect(page.locator("#job-options input")).toHaveCount(5);
   expect(pageErrors).toEqual([]);
 });
@@ -29,6 +29,35 @@ test("creates a life and persists the selected character", async ({ page }) => {
 
   const savedRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
   expect(savedRun).toMatchObject({ name: "Mira", age: 16, classId: "none", jobId: "none" });
+});
+
+test("turns Nouvelle vie into a voluntary death", async ({ page }) => {
+  await page.locator("#name-input").fill("Mira");
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Nouvelle vie" }).click();
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")));
+  expect(saved.run).toBeNull();
+  expect(saved.legacy.deaths).toBe(1);
+  expect(saved.legacy.abandoned).toBe(0);
+  expect(saved.legacy.characters[0]).toMatchObject({ name: "Mira", reason: "Personnage tué volontairement pour commencer une nouvelle vie." });
+});
+
+test("rounds displayed floating-point values to two decimals", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.stats.magic = 3.125;
+    save.run.jobXP = 2.345;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+
+  await expect(page.locator("#tab-content")).toContainText("3.13");
+  await expect(page.locator("#tab-content")).toContainText("2.35 XP");
+  await expect(page.locator("#tab-content")).not.toContainText("3.125");
 });
 
 test("uses a random name when the name is empty and shows the complete summary", async ({ page }) => {
@@ -54,7 +83,7 @@ test("shows equipment stat contributions separately in the summary", async ({ pa
   });
   await page.reload();
 
-  await expect(page.locator("#tab-content")).toContainText("Chance 5.0 (2.0)");
+  await expect(page.locator("#tab-content")).toContainText("Chance 5 (2)");
 });
 
 test("only displays inherited domains above beginner with their best character and effect", async ({ page }) => {
@@ -74,7 +103,7 @@ test("only displays inherited domains above beginner with their best character a
 
   await expect(page.locator("#tab-content")).toContainText("Mage");
   await expect(page.locator("#tab-content")).toContainText("Meilleur rang atteint : Novice · par Mira");
-  await expect(page.locator("#tab-content")).toContainText("Effet concret : +0.5 ans d'espérance de vie");
+  await expect(page.locator("#tab-content")).toContainText("Effets : +0.5 ans d'espérance de vie");
   await expect(page.locator("#tab-content")).not.toContainText("Épées");
 });
 
@@ -102,7 +131,7 @@ test("uses previous best levels for growth experience and life expectancy", asyn
 
   expect(after.jobXP).toBe(2.5);
   expect(after.classXP).toBe(0);
-  await expect(page.locator("#tab-content")).toContainText("Bonus historiques des niveaux : +3.5 ans");
+  await expect(page.locator("#tab-content")).toContainText("Espérance de vie : 33.5 ans");
   await expect(page.locator("#tab-content")).not.toContainText("Potentiel de classe");
 });
 
@@ -144,6 +173,86 @@ test("evolves a mage into an unlocked fire mage", async ({ page }) => {
   const savedRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
   expect(savedRun.classId).toBe("fireMage");
   expect(savedRun.learned).toContain("fire-sphere");
+  expect(savedRun.equippedAttacks).toContain("fire-sphere");
+});
+
+test("keeps wind and earth mages as mage evolutions", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "mage";
+    save.legacy.unlockedClasses.push("mage", "windMage", "earthMage");
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Classes / métiers" }).click();
+  await page.locator('[data-select-class="windMage"]').click();
+  await page.getByRole("button", { name: "Classes / métiers" }).click();
+
+  await expect(page.locator('[data-select-class="earthMage"]')).toHaveCount(0);
+});
+
+test("allows a class evolution item to bypass normal class prerequisites", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "knight";
+    save.run.inventory["primordial-core"] = 1;
+    save.legacy.unlockedClasses.push("knight");
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Inventaire" }).click();
+  await page.getByRole("button", { name: "Évoluer vers Arcaniste primordial" }).click();
+
+  const savedRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(savedRun.classId).toBe("primordial");
+});
+
+test("initializes mana at maximum and allows stats above twenty", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  const initial = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(initial.mana).toBe(25 + initial.stats.magic * 4 + initial.stats.knowledge * 2);
+
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.stats.strength = 20;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Actions" }).click();
+  await page.getByRole("button", { name: "Entraînement" }).click();
+  await page.locator('[data-action="train:physical"]').click();
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(after.stats.strength).toBeGreaterThan(20);
+});
+
+test("shows the life journal in summary instead of inherited passives", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await expect(page.locator("#tab-content")).not.toContainText("Passifs hérités");
+  await expect(page.locator("#tab-content")).toContainText("Journal de vie");
+  await expect(page.locator("#summary-event-log")).toContainText("Naissance");
+});
+
+test("can remove the only equipped punch and still use punch in combat", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.equippedAttacks = ["punch", null, null, null];
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Stats combat" }).click();
+  await page.locator('[data-remove-attack-slot="0"]').click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run.equippedAttacks.every(value => value === null))).toBe(true);
+
+  await page.getByRole("button", { name: "Combat" }).click();
+  await page.locator('[data-combat-zone]').first().click();
+  await expect(page.locator('[data-attack="punch"]')).toBeVisible();
 });
 
 test("supports four attack slots with drag and drop removal", async ({ page }) => {
@@ -260,7 +369,44 @@ test("shows elemental studies only to a mage and starts combat stats with Coup d
   await page.getByRole("button", { name: "Stats combat" }).click();
   await expect(page.locator("#tab-content")).toContainText("Coup de poing");
   await expect(page.locator("#tab-content")).toContainText("Attaques apprises");
-  await expect(page.locator("#tab-content")).toContainText("Talents conditionnels");
+  await expect(page.locator("#tab-content")).toContainText("Statistiques détaillées");
+  await expect(page.locator("#tab-content")).not.toContainText("Talents conditionnels");
+});
+
+test("lets specialized mages study every element with a linked affinity bonus", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "fireMage";
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Actions" }).click();
+  await page.getByRole("button", { name: "Études" }).click();
+  await expect(page.locator("#tab-content")).toContainText("Étude élémentaire : Feu");
+  await expect(page.locator("#tab-content")).toContainText("Étude élémentaire : Terre");
+
+  await page.getByRole("button", { name: /Étude élémentaire : Feu/ }).click();
+  const savedRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(savedRun.elementMastery.fire.xp).toBe(5);
+});
+
+test("shows unlocked jobs as selectable options during a run", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.legacy.unlockedJobs.push("farmer");
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Classes / métiers" }).click();
+  await expect(page.locator('[data-select-job="farmer"]')).toHaveCount(1);
+  await page.locator('[data-select-job="farmer"]').click();
+
+  const savedRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(savedRun.jobId).toBe("farmer");
 });
 
 test("includes primary stats and class/job levels in character history", async ({ page }) => {
@@ -282,7 +428,7 @@ test("includes primary stats and class/job levels in character history", async (
   await page.reload();
   await page.getByRole("button", { name: "Héritage" }).click();
   await expect(page.locator("#tab-content")).toContainText("Mira");
-  await expect(page.locator("#tab-content")).toContainText("Force 7.0");
+  await expect(page.locator("#tab-content")).toContainText("Force 7");
   await expect(page.locator("#tab-content")).toContainText("Classe : Guerrier (Novice (8 XP))");
   await expect(page.locator("#tab-content")).toContainText("Métier : Fermier (Apprenti (24 XP))");
 });

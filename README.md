@@ -15,7 +15,6 @@ Les statistiques principales sont Force, Magie, Agilité, Constitution, Savoir e
 | Sans classe | Toujours disponible |
 | Guerrier | Atteindre 6 Force |
 | Mage | Effectuer 4 études générales |
-| Voleur | Atteindre 6 XP de maîtrise des dagues |
 | Rôdeur | Effectuer 3 explorations |
 | Alchimiste | Trouver 4 objets |
 
@@ -33,8 +32,23 @@ Ces classes existent dans la lignée mais restent masquées jusqu'à leur décou
 | Chevalier | Guerrier et 8 XP d'épées |
 | Lancier | Guerrier et 8 XP de lances |
 | Archer | Guerrier et 8 XP d'arcs |
+| Voleur | Guerrier et 6 XP de dagues |
+| Mage de vent | Atteindre 8 XP d'affinité du vent |
+| Mage de terre | Atteindre 8 XP d'affinité de la terre |
 
 Les classes cachées découvertes sont conservées pour les prochaines générations.
+
+## Métiers accessibles normalement
+
+| Métier | Condition de découverte |
+|---|---|
+| Sans métier | Toujours disponible |
+| Fermier | Effectuer 3 travaux |
+| Marchand | Gagner 90 or avec la lignée |
+| Érudit | Effectuer 3 études |
+| Forgeron | Trouver 3 matériaux |
+
+Les métiers ne possèdent pas encore d'évolutions. Ils sont néanmoins conservés dans la lignée et leurs bonus de croissance sont affichés dans les passifs hérités.
 
 ## Actions
 
@@ -74,7 +88,7 @@ Les zones disponibles sont la Forêt ancienne, les Ruines oubliées, la Crypte m
 
 ## Combat
 
-Les combats sont au tour par tour, en mode Manuel ou Automatique. Les attaques utilisent la précision, les résistances, les coups critiques, les PV et le mana. Les maîtrises d'armes progressent lorsque la catégorie est travaillée ou utilisée en combat. Les attaques apprises se placent par glisser-déposer dans les quatre emplacements d'attaque.
+Les combats sont au tour par tour, en mode Manuel ou Automatique. Les attaques utilisent la précision, les résistances, les coups critiques, les PV et le mana. Les maîtrises d'armes progressent lorsque la catégorie est travaillée ou utilisée en combat. Les attaques apprises se placent par glisser-déposer dans les quatre emplacements d'attaque ou avec le bouton **Équiper**, qui remplit automatiquement le premier emplacement libre.
 
 Un combat terminé compte comme une seule action de vie : les tours internes ne vieillissent pas le personnage. Le journal de combat détaille la zone, l'ennemi, les actions et le résultat.
 
@@ -88,7 +102,7 @@ Le journal de vie est daté uniquement par l'âge, par exemple `16 ans : naissan
 
 Les maladies ont une gravité et une progression ; elles peuvent empirer avec le temps. Les potions et le repos offrent des moyens de récupération.
 
-Le commerce renouvelle son stock tous les cinq ans. Les équipements occupent neuf emplacements et ajoutent des bonus soumis à des prérequis statistiques. Le résumé affiche les statistiques cumulées et la part fournie par l'équipement. Les objets de valeur, matériaux et consommables peuvent être vendus ou utilisés.
+Le commerce renouvelle son stock tous les cinq ans. Il propose quatre objets au départ, puis un objet supplémentaire par zone de combat découverte. Les équipements occupent neuf emplacements et ajoutent des bonus soumis à des prérequis statistiques. Le résumé affiche les statistiques cumulées et la part fournie par l'équipement. Les objets de valeur, matériaux et consommables peuvent être vendus ou utilisés.
 
 ## Héritage et fin de vie
 

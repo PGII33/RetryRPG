@@ -14,9 +14,15 @@ export function statName(id) {
   return STATS.find(stat => stat[0] === id)?.[1] || STAT_LABELS[id] || ELEMENTS[id] || WEAPONS[id] || id;
 }
 
+export function fmtNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  return String(Math.round((number + Number.EPSILON) * 100) / 100);
+}
+
 export function fmtBonuses(obj = {}) {
   return Object.entries(obj)
-    .map(([key, value]) => `${value >= 0 ? "+" : ""}${value} ${statName(key)}`)
+    .map(([key, value]) => `${value >= 0 ? "+" : ""}${fmtNumber(value)} ${statName(key)}`)
     .join(", ") || "Aucun bonus";
 }
 
