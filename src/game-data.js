@@ -33,7 +33,10 @@ export const PASSIVE_LABELS = { damage: "Dégâts", lifeExpectancy: "ans d'espé
 export const RES_KEYS = { slash: "slashRes", pierce: "pierceRes", blunt: "bluntRes", fire: "fireRes", ice: "iceRes", wind: "windRes", earth: "earthRes", magic: "magicResistance" };
 export const CLASSES = {
   none: { name: "Sans classe", description: "Une voie libre, sans bonus de spécialisation.", stat: null, unlock: () => true },
-  warrior: { name: "Guerrier", description: "Force, défense physique et maîtrise des armes lourdes.", stat: "strength", unlock: s => s.run.maxStats.strength >= 7 },
+  warrior: { name: "Guerrier", description: "Force, défense physique et maîtrise des armes.", stat: "strength", unlock: s => s.run.maxStats.strength >= 7 },
+  knight: { name: "Chevalier", description: "Évolution du Guerrier spécialisée dans les épées.", stat: "strength", hidden: true, weapon: "sword", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.sword.xp >= 8 },
+  lancer: { name: "Lancier", description: "Évolution du Guerrier spécialisée dans les lances.", stat: "strength", hidden: true, weapon: "spear", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.spear.xp >= 8 },
+  archer: { name: "Archer", description: "Évolution du Guerrier spécialisée dans les arcs.", stat: "agility", hidden: true, weapon: "bow", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.bow.xp >= 8 },
   mage: { name: "Mage", description: "Mana, puissance magique et théorie arcanique.", stat: "magic", unlock: s => s.run.studyActions >= 4 },
   fireMage: { name: "Mage de feu", description: "Spécialiste des sorts ardents et des dégâts prolongés.", stat: "magic", hidden: true, unlock: s => s.run.elementMastery.fire.xp >= 8 },
   iceMage: { name: "Mage de glace", description: "Spécialiste du contrôle et du ralentissement.", stat: "magic", hidden: true, unlock: s => s.run.elementMastery.ice.xp >= 8 },
@@ -92,6 +95,7 @@ ITEMS.push(
   { id: "mana-sandals", name: "Sandales de flux", kind: "equipment", rarity: "Rare", slot: "boots", price: 96, sell: 52, bonus: { magic: 1, manaRegen: 2, windRes: 3 }, req: { magic: 5 }, description: "Accélèrent la circulation du mana." }
 );
 export const ATTACKS = [
+  { id: "punch", name: "Coup de poing", type: "physical", damage: "blunt", power: 5, accuracy: 95, mana: 0, desc: "L'attaque de base accessible à tous." },
   { id: "slash", name: "Frappe tranchante", type: "physical", damage: "slash", power: 9, accuracy: 92, mana: 0, weapon: "sword", desc: "Une attaque fiable." },
   { id: "pierce", name: "Estoc précis", type: "physical", damage: "pierce", power: 8, accuracy: 97, mana: 0, weapon: "spear", desc: "Précision élevée." },
   { id: "smash", name: "Grand coup", type: "physical", damage: "blunt", power: 14, accuracy: 78, mana: 0, weapon: "hammer", desc: "Lent mais puissant." },
@@ -101,7 +105,18 @@ export const ATTACKS = [
   { id: "wind", name: "Lame de vent", type: "magic", damage: "wind", element: "wind", power: 11, accuracy: 97, mana: 6, desc: "Rapide et précise." },
   { id: "earth", name: "Éclat tellurique", type: "magic", damage: "earth", element: "earth", power: 17, accuracy: 84, mana: 10, desc: "Frappe lourde et lente." },
   { id: "heal", name: "Soin", type: "heal", power: 0, accuracy: 100, mana: 10, desc: "Restaure des PV." },
-  { id: "guard", name: "Garde", type: "buff", power: 0, accuracy: 100, mana: 4, desc: "Protection temporaire." }
+  { id: "guard", name: "Garde", type: "buff", power: 0, accuracy: 100, mana: 4, desc: "Protection temporaire." },
+  { id: "mana-sphere", name: "Sphère de mana", type: "magic", damage: "magic", power: 16, accuracy: 94, mana: 7, classId: "mage", desc: "Une sphère arcanique qui renforce la maîtrise du Mage." },
+  { id: "warrior-strike", name: "Frappe du guerrier", type: "physical", damage: "blunt", power: 12, accuracy: 90, mana: 0, classId: "warrior", desc: "Une frappe fondée sur la force du Guerrier." },
+  { id: "knight-slash", name: "Coup d'épée", type: "physical", damage: "slash", power: 15, accuracy: 94, mana: 0, weapon: "sword", classId: "knight", desc: "Le coup emblématique du Chevalier." },
+  { id: "lancer-thrust", name: "Pointe de lance", type: "physical", damage: "pierce", power: 15, accuracy: 96, mana: 0, weapon: "spear", classId: "lancer", desc: "Une attaque précise du Lancier." },
+  { id: "archer-shot", name: "Tir de précision", type: "physical", damage: "pierce", power: 14, accuracy: 98, mana: 0, weapon: "bow", classId: "archer", desc: "Un tir maîtrisé de l'Archer." },
+  { id: "rogue-strike", name: "Frappe sournoise", type: "physical", damage: "pierce", power: 13, accuracy: 96, mana: 0, weapon: "dagger", classId: "rogue", desc: "Une attaque rapide du Voleur." },
+  { id: "ranger-shot", name: "Flèche de piste", type: "physical", damage: "pierce", power: 13, accuracy: 96, mana: 0, weapon: "bow", classId: "ranger", desc: "Un tir précis du Rôdeur." },
+  { id: "alchemist-burst", name: "Décharge alchimique", type: "magic", damage: "magic", power: 14, accuracy: 92, mana: 6, classId: "alchemist", desc: "Une réaction offensive de l'Alchimiste." },
+  { id: "fire-sphere", name: "Sphère ardente", type: "magic", damage: "fire", element: "fire", power: 19, accuracy: 90, mana: 9, classId: "fireMage", desc: "Une sphère de flammes du Mage de feu." },
+  { id: "ice-spear", name: "Lance de glace", type: "magic", damage: "ice", element: "ice", power: 18, accuracy: 93, mana: 9, classId: "iceMage", desc: "Un projectile glacé du Mage de glace." },
+  { id: "origin-ray", name: "Rayon des origines", type: "magic", damage: "magic", power: 24, accuracy: 88, mana: 12, classId: "primordial", desc: "La puissance des quatre éléments réunis." }
 ];
 export const ZONES = [
   { id: "forest", name: "Forêt ancienne", difficulty: 1, description: "Loups et gobelins entre les racines.", enemy: ["Loup ancien", "Gobelin rôdeur"], reward: ["ore", "health-potion"] },

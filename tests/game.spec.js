@@ -108,3 +108,93 @@ test("restores an existing life after a reload", async ({ page }) => {
   await expect(page.locator("#tab-content")).toContainText("Iris");
   await expect(page.locator("#event-log")).toContainText("Naissance");
 });
+
+test("launches combat from the Combat menu instead of exploration", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.getByRole("button", { name: "Combat" }).click();
+
+  await expect(page.locator('[data-combat-zone]')).toHaveCount(10);
+  await page.locator('[data-combat-zone]').first().click();
+  await expect(page.locator("#tab-content")).toContainText("Choisir une attaque");
+  await expect(page.locator("#tab-content")).toContainText("Coup de poing");
+});
+
+test("limits weapon training to warrior classes with a matching owned weapon", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "mage";
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Actions" }).click();
+  await page.getByRole("button", { name: "Entraînement" }).click();
+  await expect(page.locator("#tab-content")).not.toContainText("S'entraîner : Épées");
+  await expect(page.locator("#tab-content")).not.toContainText("Technique de classe");
+
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "warrior";
+    save.run.inventory["iron-sword"] = 1;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Actions" }).click();
+  await page.getByRole("button", { name: "Entraînement" }).click();
+  await expect(page.locator("#tab-content")).toContainText("S'entraîner : Épées");
+});
+
+test("shows elemental studies only to a mage and starts combat stats with Coup de poing", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "warrior";
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Actions" }).click();
+  await page.getByRole("button", { name: "Études" }).click();
+  await expect(page.locator("#tab-content")).not.toContainText("Étude élémentaire : Feu");
+
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "mage";
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Actions" }).click();
+  await page.getByRole("button", { name: "Études" }).click();
+  await expect(page.locator("#tab-content")).toContainText("Étude élémentaire : Feu");
+  await page.getByRole("button", { name: "Stats combat" }).click();
+  await expect(page.locator("#tab-content")).toContainText("Coup de poing");
+  await expect(page.locator("#tab-content")).toContainText("Attaques apprises");
+  await expect(page.locator("#tab-content")).toContainText("Talents conditionnels");
+});
+
+test("includes primary stats and class/job levels in character history", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.legacy.characters = [{
+      name: "Mira",
+      stats: { strength: 7, magic: 4, agility: 5, constitution: 6, knowledge: 3, luck: 2 },
+      classId: "warrior",
+      jobId: "farmer",
+      age: 24,
+      classLevel: "Novice (8 XP)",
+      jobLevel: "Apprenti (24 XP)"
+    }];
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Héritage" }).click();
+  await expect(page.locator("#tab-content")).toContainText("Mira");
+  await expect(page.locator("#tab-content")).toContainText("Force 7.0");
+  await expect(page.locator("#tab-content")).toContainText("Classe : Guerrier (Novice (8 XP))");
+  await expect(page.locator("#tab-content")).toContainText("Métier : Fermier (Apprenti (24 XP))");
+});

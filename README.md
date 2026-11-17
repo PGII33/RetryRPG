@@ -6,7 +6,7 @@ Retry RPG est un RPG textuel jouable dans un navigateur moderne, sans service ex
 
 Le nom, la classe et le métier sont choisis à la naissance. Si le nom est laissé vide, un prénom est tiré aléatoirement. Les classes et métiers déjà découverts par la lignée sont proposés lors des générations suivantes. Les héritages augmentent les statistiques initiales ou accélèrent un apprentissage, mais ne copient pas les niveaux de maîtrise de la génération précédente.
 
-Les statistiques principales sont Force, Magie, Agilité, Constitution, Savoir et Chance. Elles déterminent notamment les dégâts, la défense, le mana, la régénération, les résistances et le risque d'une rencontre en exploration. Les maîtrises utilisent les rangs Débutant, Novice, Apprenti, Initié, Confirmé, Expert et Maître.
+Les statistiques principales sont Force, Magie, Agilité, Constitution, Savoir et Chance. Elles déterminent notamment les dégâts, la défense, le mana, la régénération et les résistances. Les maîtrises utilisent les rangs Débutant, Novice, Apprenti, Initié, Confirmé, Expert et Maître.
 
 ## Classes accessibles normalement
 
@@ -19,7 +19,7 @@ Les statistiques principales sont Force, Magie, Agilité, Constitution, Savoir e
 | Rôdeur | Effectuer 3 explorations |
 | Alchimiste | Trouver 4 objets |
 
-Une classe choisie reste celle de la génération. Les techniques de classe apparaissent dans l'entraînement lorsqu'une classe est active.
+Une classe choisie reste celle de la génération. Les classes gagnent de l'expérience grâce aux statistiques associées et aux combats. Chaque classe possède aussi une attaque dédiée, disponible dans les attaques apprises.
 
 ## Classes cachées
 
@@ -30,6 +30,9 @@ Ces classes existent dans la lignée mais restent masquées jusqu'à leur décou
 | Mage de feu | Atteindre 8 XP d'affinité du feu |
 | Mage de glace | Atteindre 8 XP d'affinité de la glace |
 | Arcaniste primordial | Obtenir un Cœur primordial |
+| Chevalier | Guerrier et 8 XP d'épées |
+| Lancier | Guerrier et 8 XP de lances |
+| Archer | Guerrier et 8 XP d'arcs |
 
 Les classes cachées découvertes sont conservées pour les prochaines générations.
 
@@ -43,7 +46,7 @@ L'onglet Études présente les activités réellement disponibles :
 
 - **Études générales**, accessibles à tous : Savoir et Magie progressent.
 - **Étude sur le mana**, accessible aux voies magiques : Magie et Savoir progressent et la compréhension magique peut être transmise.
-- **Études élémentaires**, accessibles aux voies magiques : une seule affinité choisie progresse à la fois parmi Feu, Glace, Vent et Terre. Elles débloquent les techniques et les conditions des évolutions correspondantes.
+- **Études élémentaires**, accessibles au Mage : une seule affinité choisie progresse à la fois parmi Feu, Glace, Vent et Terre. Elles débloquent les techniques et les conditions des évolutions correspondantes.
 
 Une étude n'accorde jamais automatiquement de maîtrise dans un autre domaine.
 
@@ -52,18 +55,16 @@ Une étude n'accorde jamais automatiquement de maîtrise dans un autre domaine.
 L'onglet Entraînement regroupe :
 
 - le développement physique (Force, Agilité, Constitution) ;
-- les techniques de base (mains nues) ;
 - les techniques de combat par arme, qui augmentent la maîtrise de la catégorie et peuvent débloquer une attaque ;
-- les techniques de classe ;
 - les techniques magiques, dont la concentration de mana, qui augmente la régénération de mana.
 
-Les gains et la maîtrise actuelle sont affichés sur chaque activité. Les activités de classe ou magiques sont masquées tant que la condition n'est pas remplie. Travailler une arme ne donne pas de maîtrise élémentaire.
+Les gains et la maîtrise actuelle sont affichés sur chaque activité. Les entraînements d'armes sont réservés au Guerrier et à ses évolutions, et une arme correspondante doit être possédée dans l'inventaire. Les études élémentaires sont réservées au Mage. Travailler une arme ne donne pas de maîtrise élémentaire.
 
 ### Exploration
 
 L'onglet Exploration décrit chaque zone avec sa difficulté, ses ennemis, ses ressources, son butin, ses risques et ses prérequis. Une zone inconnue peut être tentée directement si ses prérequis sont satisfaits. Dès la première entrée, elle devient découverte et reste sélectionnable jusqu'à la fin de la génération.
 
-L'entrée peut déclencher une rencontre aléatoire. La probabilité est centralisée et dépend de la difficulté et de l'Agilité : une Agilité élevée réduit le risque. Une exploration sans combat peut fournir une ressource, un objet ou aucun résultat. Les découvertes sont propres à la génération et sont réinitialisées lors de la création d'une nouvelle vie.
+Une exploration ne déclenche jamais de combat : elle peut fournir une ressource, un objet ou aucun résultat. Les combats se lancent exclusivement dans l'onglet **Combat**, où le choix d'une zone démarre directement la rencontre. Les découvertes sont propres à la génération et sont réinitialisées lors de la création d'une nouvelle vie.
 
 Les autres activités sont le travail, qui rapporte de l'or selon le métier, et le repos, qui récupère des PV et du mana et peut guérir une maladie.
 
@@ -91,7 +92,7 @@ Le commerce renouvelle son stock tous les cinq ans. Les équipements occupent ne
 
 ## Héritage et fin de vie
 
-Les huit maîtrises d'armes, les quatre affinités élémentaires, la maîtrise de classe, les quatre métiers et la Concentration du mana possèdent chacune un passif héritable. Le rang Débutant ne donne aucun bonus et n'est pas affiché dans le menu Héritage. Au-dessus de Débutant, chaque rang augmente les XP gagnés dans la classe ou le métier concerné et ajoute 0,5 an d'espérance de vie par niveau actif. Le meilleur rang atteint est mémorisé par domaine avec le personnage source ; la valeur correspondante s'ajoute aux générations suivantes et se cumule sans diminuer. Les maîtrises actives sont recréées à zéro à chaque naissance.
+Les huit maîtrises d'armes, les quatre affinités élémentaires, la maîtrise de classe, les quatre métiers et la Concentration du mana possèdent chacune un passif héritable. Le rang Débutant ne donne aucun bonus et n'est pas affiché dans le menu Héritage. Au-dessus de Débutant, chaque rang augmente les XP gagnés dans la classe ou le métier concerné et ajoute 0,5 an d'espérance de vie par niveau actif. Le meilleur rang atteint est mémorisé par domaine avec le personnage source ; la valeur correspondante s'ajoute aux générations suivantes et se cumule sans diminuer. L'historique conserve aussi les statistiques principales de chaque personnage. Les maîtrises actives sont recréées à zéro à chaque naissance.
 
 Une mort par vieillissement, maladie ou combat termine la génération, conserve l'historique et peut transmettre des talents d'apprentissage. **Nouvelle vie** abandonne volontairement la génération sans compter une mort. Le menu Héritage affiche les classes, métiers, talents, découvertes et personnages terminés.
 
