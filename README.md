@@ -102,3 +102,22 @@ python3 -m http.server 8080
 ```
 
 Ouvrir ensuite `http://localhost:8080`.
+
+## Tests
+
+Installer les dépendances puis lancer les tests navigateur :
+
+```bash
+npm install
+npx playwright install chromium
+npm test
+```
+
+## Organisation du code
+
+- `app.js` orchestre l'état d'une génération, les actions et le rendu de l'interface.
+- `src/game-data.js` centralise le catalogue statique du jeu : classes, métiers, objets, zones, attaques et libellés.
+- `src/game-helpers.js` regroupe les helpers partagés d'affichage, de formatage et de recherche d'objets.
+- `src/storage.js` encapsule la sauvegarde locale et sa gestion d'erreur.
+
+Le navigateur doit charger `app.js` comme module ES (`type="module"` dans `index.html`). Le serveur HTTP local reste nécessaire pour que les imports de modules soient servis correctement.
