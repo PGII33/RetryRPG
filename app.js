@@ -547,7 +547,8 @@ function availableTraining() {
     .filter(activity => !activity.magicOnly || ["mage", "fireMage", "iceMage", "windMage", "earthMage", "primordial"].includes(save.run.classId));
 }
 function activityCard(activity, action, extra = "") {
-  return `<article class="action-card"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${extra || fmtBonuses(activity.gains)}${extra?.endsWith("1 an") ? "" : " · 1 an"}</small><button class="primary-button" aria-label="${activity.name}" data-action="${action}">Effectuer</button></article>`;
+  const accessibleName = activity.element ? ` aria-label="${activity.name}"` : "";
+  return `<article class="action-card"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${extra || fmtBonuses(activity.gains)}${extra?.endsWith("1 an") ? "" : " · 1 an"}</small><button class="primary-button"${accessibleName} data-action="${action}">Effectuer</button></article>`;
 }
 function actionMarkup() {
   const studyGroups = Object.entries(availableStudies().reduce((groups, study) => { const key = study.element ? "Études élémentaires" : "Études disponibles"; (groups[key] ||= []).push(study); return groups; }, {}));
