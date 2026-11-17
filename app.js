@@ -238,7 +238,7 @@ function deterministicMasteryRows() {
 }
 masteryRows = deterministicMasteryRows;
 function actionButton(activity, id, extra) {
-  return `<article class="action-card"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${extra || fmtBonuses(activity.gains)} · 1 an</small><button class="primary-button" data-action="${id}">Effectuer</button></article>`;
+  return `<article class="action-card"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${extra || fmtBonuses(activity.gains)} · 1 an</small><button class="primary-button" aria-label="${activity.name}" data-action="${id}">Effectuer</button></article>`;
 }
 function actionsMarkup() {
   const subTabs = [["study", "Études"], ["training", "Entraînement"], ["exploration", "Exploration"], ["work", "Travailler"], ["rest", "Se reposer"]];
@@ -328,7 +328,7 @@ function completeAction(text, gains = {}) {
     .filter(([key]) => STATS.some(([id]) => id === key) && save.run.stats[key] !== beforeStats[key])
     .map(([key]) => `+${(save.run.stats[key] - beforeStats[key]).toFixed(2)} ${statName(key)}`);
   if (classGain) details.push(`+${classGain} XP de classe`);
-  unlockChecks(); log(`${text}${details.length ? ` · ${details.join(" · ")}` : ""}`); persist(); renderGame();
+  unlockChecks(); log(`${text}${details.length ? ` · ${details.join(" · ")}` : ""}`); persist(); activeTab = "summary"; renderGame();
 }
 function contractDisease() { if (save.run.diseases.length) return; const names = [["Rhume", "Légère", 1], ["Fièvre des marais", "Modérée", 2], ["Peste grise", "Grave", 3]]; const d = names[Math.floor(Math.random() * names.length)]; save.run.diseases.push({ name: d[0], severity: d[1], progression: d[2] }); log(`Maladie contractée : ${d[0]} (${d[1]}).`); }
 function progressDisease() { save.run.diseases.forEach(d => { if (Math.random() < .35) { d.progression++; if (d.progression >= 4 && d.severity !== "Critique") { d.severity = d.severity === "Légère" ? "Modérée" : d.severity === "Modérée" ? "Grave" : "Critique"; d.progression = 0; log(`${d.name} s'aggrave : gravité ${d.severity}.`); } if (d.severity === "Critique" && Math.random() < .28) die(`La maladie ${d.name} devient mortelle.`); } }); }
@@ -547,7 +547,7 @@ function availableTraining() {
     .filter(activity => !activity.magicOnly || ["mage", "fireMage", "iceMage", "windMage", "earthMage", "primordial"].includes(save.run.classId));
 }
 function activityCard(activity, action, extra = "") {
-  return `<article class="action-card"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${extra || fmtBonuses(activity.gains)}${extra?.endsWith("1 an") ? "" : " · 1 an"}</small><button class="primary-button" data-action="${action}">Effectuer</button></article>`;
+  return `<article class="action-card"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${extra || fmtBonuses(activity.gains)}${extra?.endsWith("1 an") ? "" : " · 1 an"}</small><button class="primary-button" aria-label="${activity.name}" data-action="${action}">Effectuer</button></article>`;
 }
 function actionMarkup() {
   const studyGroups = Object.entries(availableStudies().reduce((groups, study) => { const key = study.element ? "Études élémentaires" : "Études disponibles"; (groups[key] ||= []).push(study); return groups; }, {}));
@@ -709,7 +709,7 @@ legacyMarkup = finalLegacyMarkup;
 function finalSummaryMarkup() {
   const r = save.run, s = totals(), equipment = equippedBonuses();
   const journal = r.log.map(entry => `<li>${esc(entry)}</li>`).join("");
-  return `<div class="dashboard"><div class="panel"><p class="eyebrow">Run actuelle</p><h2>${esc(r.name)} <span class="muted">· ${r.age} ans</span></h2><p>Classe : <b>${CLASSES[r.classId].name}</b> · ${masteryText({ xp: r.classXP })}<br>Métier : <b>${JOBS[r.jobId].name}</b> · ${masteryText({ xp: r.jobXP })}</p><p class="muted">Espérance de vie : ${fmtNumber(lifeExpectancy())} ans</p><div class="stat-grid">${STATS.map(([id, name]) => `<div class="stat"><span>${name}</span><strong>${fmtNumber(s[id])} (${fmtNumber(equipment[id] || 0)})</strong></div>`).join("")}</div><p class="hp">PV ${fmtNumber(r.hp)} / ${fmtNumber(r.maxHp)}</p><div class="bar"><i style="width:${Math.max(0, Math.min(100, r.hp / r.maxHp * 100))}%"></i></div><p class="mana">Mana ${fmtNumber(r.mana)} / ${fmtNumber(s.maxMana)}</p><div class="bar"><i style="width:${Math.max(0, Math.min(100, r.mana / s.maxMana * 100))}%"></i></div></div><div class="panel"><h2>Journal de vie</h2><ul id="summary-event-log">${journal}</ul></div></div>`;
+  return `<div class="dashboard"><div class="panel"><p class="eyebrow">Run actuelle</p><h2>${esc(r.name)} <span class="muted">· ${r.age} ans</span></h2><p>Classe : <b>${CLASSES[r.classId].name}</b> · ${masteryText({ xp: r.classXP })}<br>Métier : <b>${JOBS[r.jobId].name}</b> · ${masteryText({ xp: r.jobXP })}</p><p class="muted">Espérance de vie : ${fmtNumber(lifeExpectancy())} ans</p><div class="stat-grid">${STATS.map(([id, name]) => `<div class="stat"><span>${name}</span> <strong>${fmtNumber(s[id])} (${fmtNumber(equipment[id] || 0)})</strong></div>`).join("")}</div><p class="hp">PV ${fmtNumber(r.hp)} / ${fmtNumber(r.maxHp)}</p><div class="bar"><i style="width:${Math.max(0, Math.min(100, r.hp / r.maxHp * 100))}%"></i></div><p class="mana">Mana ${fmtNumber(r.mana)} / ${fmtNumber(s.maxMana)}</p><div class="bar"><i style="width:${Math.max(0, Math.min(100, r.mana / s.maxMana * 100))}%"></i></div></div><div class="panel"><h2>Journal de vie</h2><ul id="summary-event-log">${journal}</ul></div></div>`;
 }
 summaryMarkup = finalSummaryMarkup;
 recordLegacyMasteries = recordLegacyMasteriesDeterministically;

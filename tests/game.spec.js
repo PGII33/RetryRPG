@@ -148,7 +148,7 @@ test("uses the historical class level when gaining class experience", async ({ p
     localStorage.setItem(key, JSON.stringify(save));
   });
   await page.reload();
-  await page.getByRole("button", { name: "Combat" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
   await page.locator('[data-combat-zone]').first().click();
   await page.locator('[data-attack="mana-sphere"]').click();
 
@@ -250,7 +250,7 @@ test("can remove the only equipped punch and still use punch in combat", async (
   await page.locator('[data-remove-attack-slot="0"]').click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run.equippedAttacks.every(value => value === null))).toBe(true);
 
-  await page.getByRole("button", { name: "Combat" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
   await page.locator('[data-combat-zone]').first().click();
   await expect(page.locator('[data-attack="punch"]')).toBeVisible();
 });
@@ -308,7 +308,7 @@ test("restores an existing life after a reload", async ({ page }) => {
 
 test("launches combat from the Combat menu instead of exploration", async ({ page }) => {
   await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
-  await page.getByRole("button", { name: "Combat" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
 
   await expect(page.locator('[data-combat-zone]')).toHaveCount(10);
   await page.locator('[data-combat-zone]').first().click();
