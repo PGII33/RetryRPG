@@ -13,7 +13,7 @@ Les statistiques principales sont Force, Magie, Agilité, Constitution, Savoir e
 | Classe | Condition de découverte |
 |---|---|
 | Sans classe | Toujours disponible |
-| Guerrier | Atteindre 7 Force |
+| Guerrier | Atteindre 6 Force |
 | Mage | Effectuer 4 études générales |
 | Voleur | Atteindre 6 XP de maîtrise des dagues |
 | Rôdeur | Effectuer 3 explorations |
@@ -92,7 +92,7 @@ Le commerce renouvelle son stock tous les cinq ans. Les équipements occupent ne
 
 ## Héritage et fin de vie
 
-Les huit maîtrises d'armes, les quatre affinités élémentaires, la maîtrise de classe, les quatre métiers et la Concentration du mana possèdent chacune un passif héritable. Le rang Débutant ne donne aucun bonus et n'est pas affiché dans le menu Héritage. Au-dessus de Débutant, chaque rang augmente les XP gagnés dans la classe ou le métier concerné et ajoute 0,5 an d'espérance de vie par niveau actif. Le meilleur rang atteint est mémorisé par domaine avec le personnage source ; la valeur correspondante s'ajoute aux générations suivantes et se cumule sans diminuer. L'historique conserve aussi les statistiques principales de chaque personnage. Les maîtrises actives sont recréées à zéro à chaque naissance.
+Les huit maîtrises d'armes, les quatre affinités élémentaires, chaque classe, les quatre métiers et la Concentration du mana possèdent chacun un passif héritable. Le rang Débutant ne donne aucun bonus et n'est pas affiché dans le menu Héritage. Les bonus de croissance utilisent le meilleur rang historique de la classe ou du métier concerné, même si la run actuelle recommence à Débutant. Chaque niveau historique au-dessus de Débutant dans chaque classe et chaque métier ajoute 0,5 an d'espérance de vie ; les bonus sont donc distincts pour le Guerrier, le Mage, le Fermier, etc. L'historique conserve aussi les statistiques principales de chaque personnage. Les maîtrises actives sont recréées à zéro à chaque naissance.
 
 Une mort par vieillissement, maladie ou combat termine la génération, conserve l'historique et peut transmettre des talents d'apprentissage. **Nouvelle vie** abandonne volontairement la génération sans compter une mort. Le menu Héritage affiche les classes, métiers, talents, découvertes et personnages terminés.
 

@@ -2,12 +2,12 @@ export const STATS = [
   ["strength", "Force"], ["magic", "Magie"], ["agility", "Agilité"],
   ["constitution", "Constitution"], ["knowledge", "Savoir"], ["luck", "Chance"]
 ];
-export const RANDOM_NAMES = ["Ari", "Mira", "Nora", "Iris", "Léo", "Sacha", "Noé", "Alix"];
+export const RANDOM_NAMES = ["Ari", "Mira", "Nora", "Iris", "Léo", "Sacha", "Noé", "Alix", "Micky", "Vincent", "Ethan", "Lucien", "Aloyse", "Anna", "Léa", "Thiméeo", "Sandy", "Alyson", "Clément", "Nicolas"];
 export const ELEMENTS = { fire: "Feu", ice: "Glace", wind: "Vent", earth: "Terre" };
 export const WEAPONS = { sword: "Épées", axe: "Haches", hammer: "Masses et marteaux", spear: "Lances", bow: "Arcs et arbalètes", dagger: "Dagues", unarmed: "Mains nues", catalyst: "Catalyseurs" };
 export const SLOTS = { main: "Arme principale", off: "Arme secondaire", helmet: "Casque", chest: "Plastron", legs: "Jambières", boots: "Bottes", gloves: "Gants", accessory1: "Accessoire 1", accessory2: "Accessoire 2" };
 export const MASTERY_LEVELS = ["Débutant", "Novice", "Apprenti", "Initié", "Confirmé", "Expert", "Maître"];
-export const MASTERY_XP = [0, 8, 24, 55, 105, 180, 300];
+export const MASTERY_XP = [0, 5, 15, 40, 70, 105, 150];
 export const MASTERY_DOMAINS = {
   ...Object.fromEntries(Object.entries(WEAPONS).map(([id, name]) => [id, {
     label: name, source: "Armes", passive: id === "hammer" ? { bluntRes: 1.2, damage: 1.5 } : id === "bow" ? { accuracy: 1.5, attackSpeed: 1 } : id === "dagger" ? { accuracy: 1, evasion: 1.2 } : id === "catalyst" ? { magicPower: 1.5, manaRegen: .3 } : id === "unarmed" ? { defense: 1, damage: 1 } : { damage: 1.2, accuracy: .5 }
@@ -15,7 +15,6 @@ export const MASTERY_DOMAINS = {
   ...Object.fromEntries(Object.entries(ELEMENTS).map(([id, name]) => [id, {
     label: name, source: "Éléments", passive: { magicPower: 1.5, [`${id}Res`]: 1.5 }
   }])),
-  class: { label: "Potentiel de classe", source: "Classes", passive: { lifeExpectancy: 1, defense: 1, magicPower: 1, damage: 1 } },
   farmer: { label: "Fermier", source: "Métiers", passive: { workGold: 1, lifeRegen: .4 } },
   merchant: { label: "Marchand", source: "Métiers", passive: { workGold: 1, sellBonus: 2 } },
   scholar: { label: "Érudit", source: "Métiers", passive: { workGold: 1, studyYield: .8, magicPower: 1 } },
@@ -33,7 +32,7 @@ export const PASSIVE_LABELS = { damage: "Dégâts", lifeExpectancy: "ans d'espé
 export const RES_KEYS = { slash: "slashRes", pierce: "pierceRes", blunt: "bluntRes", fire: "fireRes", ice: "iceRes", wind: "windRes", earth: "earthRes", magic: "magicResistance" };
 export const CLASSES = {
   none: { name: "Sans classe", description: "Une voie libre, sans bonus de spécialisation.", stat: null, unlock: () => true },
-  warrior: { name: "Guerrier", description: "Force, défense physique et maîtrise des armes.", stat: "strength", unlock: s => s.run.maxStats.strength >= 7 },
+  warrior: { name: "Guerrier", description: "Force, défense physique et maîtrise des armes.", stat: "strength", unlock: s => s.run.maxStats.strength >= 6 },
   knight: { name: "Chevalier", description: "Évolution du Guerrier spécialisée dans les épées.", stat: "strength", hidden: true, weapon: "sword", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.sword.xp >= 8 },
   lancer: { name: "Lancier", description: "Évolution du Guerrier spécialisée dans les lances.", stat: "strength", hidden: true, weapon: "spear", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.spear.xp >= 8 },
   archer: { name: "Archer", description: "Évolution du Guerrier spécialisée dans les arcs.", stat: "agility", hidden: true, weapon: "bow", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.bow.xp >= 8 },
@@ -52,6 +51,12 @@ export const JOBS = {
   scholar: { name: "Érudit", description: "Recherche : savoir, mana et progression élémentaire.", stat: "knowledge", unlock: s => s.run.studyActions >= 3, work: 18 },
   blacksmith: { name: "Forgeron", description: "Forge : matériaux, équipement et maîtrise des marteaux.", stat: "strength", unlock: s => s.run.materials >= 3, work: 32 }
 };
+Object.entries(CLASSES).filter(([id]) => id !== "none").forEach(([id, data]) => {
+  MASTERY_DOMAINS[id] = { label: data.name, source: "Classes", passive: { lifeExpectancy: .5 } };
+});
+Object.keys(JOBS).filter(id => id !== "none").forEach(id => {
+  MASTERY_DOMAINS[id].passive.lifeExpectancy = .5;
+});
 export const ITEMS = [
   { id: "iron-sword", name: "Épée de fer", kind: "equipment", rarity: "Commun", slot: "main", weapon: "sword", price: 42, sell: 24, bonus: { strength: 1, accuracy: 2 }, req: { strength: 4 } },
   { id: "hunter-bow", name: "Arc du pisteur", kind: "equipment", rarity: "Inhabituel", slot: "main", weapon: "bow", price: 78, sell: 42, bonus: { agility: 2, accuracy: 4 }, req: { agility: 5 } },

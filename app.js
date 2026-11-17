@@ -52,7 +52,7 @@ ensureSaveShape();
 function inheritedBonuses() {
   const out = {};
   Object.entries(save.legacy.heritageDomains || {}).forEach(([id, domain]) => {
-    if (WEAPONS[id] || ELEMENTS[id]) return;
+    if (WEAPONS[id] || ELEMENTS[id] || id === "class") return;
     Object.entries(domain.permanent || {}).forEach(([key, value]) => { out[key] = (out[key] || 0) + value; });
   });
   return out;
@@ -78,7 +78,10 @@ function heritageProgress(id, run) {
   if (!run) return { xp: 0, level: 0 };
   if (WEAPONS[id]) return { xp: run.weaponMastery?.[id]?.xp || 0, level: level(run.weaponMastery?.[id]?.xp || 0) };
   if (ELEMENTS[id]) return { xp: run.elementMastery?.[id]?.xp || 0, level: level(run.elementMastery?.[id]?.xp || 0) };
-  if (id === "class") return { xp: run.classXP || 0, level: level(run.classXP || 0) };
+  if (CLASSES[id] && id !== "none") {
+    return run.classId === id ? { xp: run.classXP || 0, level: level(run.classXP || 0) } : { xp: 0, level: 0 };
+  }
+  if (id === "class") return { xp: 0, level: 0 };
   if (id === "concentration") return { xp: (run.techniqueMastery?.concentration || 0) * 8, level: level((run.techniqueMastery?.concentration || 0) * 8) };
   return { xp: run.jobId === id ? run.jobXP || 0 : 0, level: level(run.jobId === id ? run.jobXP || 0 : 0) };
 }
@@ -134,6 +137,17 @@ function normalizeHeritage() {
     domain.permanent ||= {};
   });
 }
+function historicalLevel(id) {
+  return save.legacy.heritageDomains?.[id]?.lastLevel
+    || level(save.legacy.masteryBonuses?.[id]?.bestXp || 0);
+}
+function historicalClassJobLevels() {
+  return Object.keys(CLASSES)
+    .filter(id => id !== "none")
+    .reduce((total, id) => total + historicalLevel(id), 0) + Object.keys(JOBS)
+    .filter(id => id !== "none")
+    .reduce((total, id) => total + historicalLevel(id), 0);
+}
 function recordLegacyMasteriesDeterministically(run) {
   normalizeHeritage();
   Object.keys(MASTERY_DOMAINS).forEach(id => {
@@ -141,13 +155,13 @@ function recordLegacyMasteriesDeterministically(run) {
     const acquired = heritageAcquired(id, progress.level);
     const domain = save.legacy.heritageDomains[id];
     domain.currentLevel = 0;
-    if (progress.level >= domain.lastLevel) {
+    if (progress.level > domain.lastLevel || (progress.level === domain.lastLevel && progress.xp > domain.lastXp)) {
       domain.lastLevel = progress.level;
       domain.lastXp = progress.xp;
       domain.lastAcquired = acquired;
       domain.lastCharacter = run.name || "Personnage sans nom";
     }
-    domain.permanent = addValues(domain.permanent, acquired);
+    domain.permanent = heritageAcquired(id, domain.lastLevel);
   });
   save.legacy.masteryBonuses = Object.fromEntries(Object.entries(save.legacy.heritageDomains).map(([id, domain]) => [id, { level: domain.lastLevel, bestXp: domain.lastXp, values: { ...domain.permanent } }]));
 }
@@ -177,16 +191,12 @@ function masteryRows() {
   }).join("");
 }
 function deterministicMasteryRows() {
-  return Object.entries(MASTERY_DOMAINS).map(([id, domain]) => {
+  return Object.entries(MASTERY_DOMAINS).filter(([id]) => id !== "class").map(([id, domain]) => {
     const active = heritageProgress(id, save.run);
     const inherited = save.legacy.heritageDomains[id];
     const total = inherited.permanent || {};
     if (inherited.lastLevel <= 0) return "";
-    const effect = id === "class"
-      ? `+${total.lifeExpectancy || 0} ans d'espérance de vie`
-      : id === "farmer" || id === "merchant" || id === "blacksmith"
-        ? `+${total.workGold || 0} or par travail dans ce métier`
-        : fmtPassiveValues(total);
+    const effect = fmtPassiveValues(total);
     return `<article class="mastery-card"><header><strong>${domain.label}</strong><span class="tag">${domain.source}</span></header><p>Meilleur rang atteint : <b>${MASTERY_LEVELS[inherited.lastLevel]}</b> · par ${esc(inherited.lastCharacter || "Personnage historique")}</p><small class="muted">Effet concret : ${effect}</small></article>`;
   }).join("");
 }
@@ -207,7 +217,7 @@ function actionsMarkup() {
 }
 function level(xp) { return Math.max(0, Math.min(MASTERY_LEVELS.length - 1, MASTERY_XP.reduce((n, threshold) => xp >= threshold ? n + 1 : n, 0) - 1)); }
 function masteryText(data) { return `${MASTERY_LEVELS[level(data.xp)]} (${data.xp} XP)`; }
-function growthXp(base, xp) { return +(base + Math.max(0, level(xp)) * .5).toFixed(2); }
+function growthXp(base, domainId) { return +(base + historicalLevel(domainId) * .5).toFixed(2); }
 function log(text) { save.run.log.unshift(`${save.run.age} ans : ${text}`); save.run.log = save.run.log.slice(0, 60); }
 function unlockChecks() {
   const before = [...save.legacy.unlockedClasses, ...save.legacy.unlockedJobs];
@@ -243,7 +253,7 @@ function advanceYear() {
 function gainStat(key, amount = .1) { save.run.stats[key] = Math.min(20, save.run.stats[key] + amount); }
 function gainClassXp(base) {
   if (!save.run || save.run.classId === "none" || base <= 0) return 0;
-  const gained = growthXp(base, save.run.classXP);
+  const gained = growthXp(base, save.run.classId);
   save.run.classXP += gained;
   return gained;
 }
@@ -402,7 +412,7 @@ function doAction(id) {
   }
   if (id === "work") {
     const job = JOBS[r.jobId], earnings = Math.round(job.work * (1 + level(r.jobXP) * .12) + (r.jobId === "merchant" ? Math.floor(r.gold * .03) : 0));
-    advanceYear(); if (!save.run) return; r.gold += earnings; save.legacy.goldEarned += earnings; r.workActions++; if (r.jobId !== "none") r.jobXP += growthXp(2, r.jobXP); if (job.stat) gainStat(job.stat, .2); log(`Travail de ${job.name} : +${earnings} or.`); persist(); return renderGame();
+    advanceYear(); if (!save.run) return; r.gold += earnings; save.legacy.goldEarned += earnings; r.workActions++; if (r.jobId !== "none") r.jobXP += growthXp(2, r.jobId); if (job.stat) gainStat(job.stat, .2); log(`Travail de ${job.name} : +${earnings} or.`); persist(); return renderGame();
   }
   if (id === "rest") return rest();
 }
@@ -470,16 +480,18 @@ function finalDoAction(id) {
     return completeAction("Entraînement accompli.", gains);
   }
   if (id === "explore") { r.explorations++; const found = Math.random() < .7 ? ["ore", "old-gem", "health-potion"][Math.floor(Math.random() * 3)] : null; if (found) { addItem(found); r.itemsFound++; } return completeAction(found ? `Exploration : ${item(found).name} trouvé.` : "Exploration : rien trouvé.", { agility: .2, luck: .15 }); }
-  if (id === "work") { const job = JOBS[r.jobId], earnings = estimatedWork(); r.gold += earnings; save.legacy.goldEarned += earnings; r.workActions++; if (r.jobId !== "none") r.jobXP += growthXp(2, r.jobXP); if (job.stat) gainStat(job.stat, .2); return completeAction(`Travail de ${job.name} : +${earnings} or.`); }
+  if (id === "work") { const job = JOBS[r.jobId], earnings = estimatedWork(); r.gold += earnings; save.legacy.goldEarned += earnings; r.workActions++; if (r.jobId !== "none") r.jobXP += growthXp(2, r.jobId); if (job.stat) gainStat(job.stat, .2); return completeAction(`Travail de ${job.name} : +${earnings} or.`); }
   if (id === "rest") return rest();
 }
 function lifeExpectancy() {
   const r = save.run;
-  const activeLevels = r ? level(r.classXP || 0) + level(r.jobXP || 0) : 0;
-  return 30 + (inheritedBonuses().lifeExpectancy || 0) + activeLevels * .5;
+  return 30 + historicalClassJobLevels() * .5;
 }
 function finalRenderGame() {
   ensureSaveShape();
+  Object.entries(save.legacy.heritageDomains).forEach(([id, domain]) => {
+    if (domain.lastLevel > 0) domain.permanent = heritageAcquired(id, domain.lastLevel);
+  });
   const tabs = [["summary", "Résumé"], ["actions", "Actions"], ["classjob", "Classes / métiers"], ["market", "Commerce"], ["inventory", "Inventaire"], ["equipment", "Équipement"], ["combat", "Combat"], ["stats", "Stats combat"], ["legacy", "Héritage"]];
   const views = { summary: summaryMarkup, actions: actionsMarkup, classjob: classJobMarkup, market: marketMarkup, inventory: inventoryMarkup, equipment: equipmentMarkup, combat: combatMarkup, stats: statsMarkup, legacy: legacyMarkup };
   document.querySelector("#tabs").innerHTML = tabs.map(([id, name]) => `<button class="tab ${activeTab === id ? "active" : ""}" data-tab="${id}">${name}</button>`).join("");
@@ -500,12 +512,12 @@ function characterHistoryMarkup() {
   return `<table><thead><tr><th>Personnage</th><th>Statistiques principales</th><th>Classe / métier</th><th>Fin</th></tr></thead><tbody>${characters.map(c => `<tr><td>${esc(c.name)}</td><td>${STATS.map(([id, name]) => `${name} ${Number(c.stats?.[id] || 0).toFixed(1)}`).join("<br>")}</td><td>Classe : ${CLASSES[c.classId].name} (${c.classLevel})<br>Métier : ${JOBS[c.jobId].name} (${c.jobLevel})</td><td>${c.age} ans</td></tr>`).join("")}</tbody></table>`;
 }
 function finalLegacyMarkup() {
-  return `<div class="panel"><h2>Héritage évolutif</h2><p class="muted">Chaque domaine conserve le meilleur rang atteint au cours des vies précédentes. Les valeurs sont cumulatives et n'effacent jamais les acquis.</p><div class="item-grid">${masteryRows()}</div></div><div class="panel"><h2>Historique</h2><p class="muted">${save.legacy.deaths} mort(s), ${save.legacy.abandoned} vie(s) abandonnée(s), record : ${save.legacy.bestAge} ans.</p>${characterHistoryMarkup()}</div>`;
+  return `<div class="panel"><h2>Héritage évolutif</h2><p class="muted">Chaque domaine conserve le meilleur rang atteint au cours des vies précédentes. Les effets affichés correspondent à ce meilleur rang.</p><div class="item-grid">${masteryRows()}</div></div><div class="panel"><h2>Historique</h2><p class="muted">${save.legacy.deaths} mort(s), ${save.legacy.abandoned} vie(s) abandonnée(s), record : ${save.legacy.bestAge} ans.</p>${characterHistoryMarkup()}</div>`;
 }
 legacyMarkup = finalLegacyMarkup;
 function finalSummaryMarkup() {
   const r = save.run, s = totals();
-  return `<div class="dashboard"><div class="panel"><p class="eyebrow">Run actuelle</p><h2>${esc(r.name)} <span class="muted">· ${r.age} ans</span></h2><p>Classe : <b>${CLASSES[r.classId].name}</b> · ${masteryText({ xp: r.classXP })}<br>Métier : <b>${JOBS[r.jobId].name}</b> · ${masteryText({ xp: r.jobXP })}</p><p class="muted">Espérance de vie de base : 30 ans · Potentiel hérité : +${inheritedBonuses().lifeExpectancy || 0} ans · Bonus de niveaux : +${((level(r.classXP || 0) + level(r.jobXP || 0)) * .5).toFixed(1)} ans · Total : ${lifeExpectancy()} ans</p><div class="stat-grid">${STATS.map(([id, name]) => `<div class="stat"><span>${name}</span><strong>${s[id].toFixed(1)}</strong></div>`).join("")}</div><p class="hp">PV ${Math.round(r.hp)} / ${r.maxHp}</p><div class="bar"><i style="width:${Math.max(0, Math.min(100, r.hp / r.maxHp * 100))}%"></i></div><p class="mana">Mana ${Math.round(r.mana)} / ${Math.round(s.maxMana)}</p><div class="bar"><i style="width:${Math.max(0, Math.min(100, r.mana / s.maxMana * 100))}%"></i></div></div><div class="panel"><h2>Passifs hérités</h2><div class="item-grid">${masteryRows()}</div></div></div>`;
+  return `<div class="dashboard"><div class="panel"><p class="eyebrow">Run actuelle</p><h2>${esc(r.name)} <span class="muted">· ${r.age} ans</span></h2><p>Classe : <b>${CLASSES[r.classId].name}</b> · ${masteryText({ xp: r.classXP })}<br>Métier : <b>${JOBS[r.jobId].name}</b> · ${masteryText({ xp: r.jobXP })}</p><p class="muted">Espérance de vie de base : 30 ans · Bonus historiques des niveaux : +${(historicalClassJobLevels() * .5).toFixed(1)} ans · Total : ${lifeExpectancy()} ans</p><div class="stat-grid">${STATS.map(([id, name]) => `<div class="stat"><span>${name}</span><strong>${s[id].toFixed(1)}</strong></div>`).join("")}</div><p class="hp">PV ${Math.round(r.hp)} / ${r.maxHp}</p><div class="bar"><i style="width:${Math.max(0, Math.min(100, r.hp / r.maxHp * 100))}%"></i></div><p class="mana">Mana ${Math.round(r.mana)} / ${Math.round(s.maxMana)}</p><div class="bar"><i style="width:${Math.max(0, Math.min(100, r.mana / s.maxMana * 100))}%"></i></div></div><div class="panel"><h2>Passifs hérités</h2><div class="item-grid">${masteryRows()}</div></div></div>`;
 }
 summaryMarkup = finalSummaryMarkup;
 recordLegacyMasteries = recordLegacyMasteriesDeterministically;

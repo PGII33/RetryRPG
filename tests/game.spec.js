@@ -50,20 +50,21 @@ test("only displays inherited domains above beginner with their best character a
     const key = "retry-rpg-save-v2";
     const save = JSON.parse(localStorage.getItem(key));
     save.legacy.heritageDomains.sword.lastLevel = 0;
-    save.legacy.heritageDomains.class.lastLevel = 1;
-    save.legacy.heritageDomains.class.lastCharacter = "Mira";
-    save.legacy.heritageDomains.class.permanent = { lifeExpectancy: 1 };
+    save.legacy.heritageDomains.mage.lastLevel = 1;
+    save.legacy.heritageDomains.mage.lastCharacter = "Mira";
+    save.legacy.heritageDomains.mage.permanent = { lifeExpectancy: 1 };
     localStorage.setItem(key, JSON.stringify(save));
   });
   await page.reload();
   await page.getByRole("button", { name: "Héritage" }).click();
 
+  await expect(page.locator("#tab-content")).toContainText("Mage");
   await expect(page.locator("#tab-content")).toContainText("Meilleur rang atteint : Novice · par Mira");
-  await expect(page.locator("#tab-content")).toContainText("Effet concret : +1 ans d'espérance de vie");
+  await expect(page.locator("#tab-content")).toContainText("Effet concret : +0.5 ans d'espérance de vie");
   await expect(page.locator("#tab-content")).not.toContainText("Épées");
 });
 
-test("class and job levels add growth experience and half a year each to life expectancy", async ({ page }) => {
+test("uses previous best levels for growth experience and life expectancy", async ({ page }) => {
   await page.locator("#name-input").fill("Iris");
   await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
   await page.evaluate(() => {
@@ -71,21 +72,45 @@ test("class and job levels add growth experience and half a year each to life ex
     const save = JSON.parse(localStorage.getItem(key));
     save.run.classId = "mage";
     save.run.jobId = "farmer";
-    save.run.classXP = 8;
-    save.run.jobXP = 8;
+    save.run.classXP = 0;
+    save.run.jobXP = 0;
+    save.legacy.heritageDomains.warrior.lastLevel = 1;
+    save.legacy.heritageDomains.mage.lastLevel = 2;
+    save.legacy.heritageDomains.farmer.lastLevel = 1;
+    save.legacy.heritageDomains.merchant.lastLevel = 3;
     localStorage.setItem(key, JSON.stringify(save));
   });
   await page.reload();
-  const before = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
   await page.getByRole("button", { name: "Actions" }).click();
   await page.getByRole("button", { name: "Travailler" }).click();
   await page.locator('[data-action="work"]').click();
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
 
-  expect(after.jobXP).toBe(10.5);
-  expect(after.classXP).toBe(9);
-  await expect(page.locator("#tab-content")).toContainText("Bonus de niveaux : +1.0 ans");
-  expect(after.jobXP).toBeGreaterThan(before.jobXP);
+  expect(after.jobXP).toBe(2.5);
+  expect(after.classXP).toBe(0);
+  await expect(page.locator("#tab-content")).toContainText("Bonus historiques des niveaux : +3.5 ans");
+  await expect(page.locator("#tab-content")).not.toContainText("Potentiel de classe");
+});
+
+test("uses the historical class level when gaining class experience", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "mage";
+    save.run.classXP = 0;
+    save.run.learned = ["punch", "mana-sphere"];
+    save.run.equippedAttacks = ["punch", "mana-sphere", null, null];
+    save.legacy.heritageDomains.mage.lastLevel = 2;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Combat" }).click();
+  await page.locator('[data-combat-zone]').first().click();
+  await page.locator('[data-attack="mana-sphere"]').click();
+
+  const savedRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(savedRun.classXP).toBe(2);
 });
 
 test("an action advances the age and writes to the life log", async ({ page }) => {
