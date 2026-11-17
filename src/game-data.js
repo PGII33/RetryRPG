@@ -2,6 +2,7 @@ export const STATS = [
   ["strength", "Force"], ["magic", "Magie"], ["agility", "Agilité"],
   ["constitution", "Constitution"], ["knowledge", "Savoir"], ["luck", "Chance"]
 ];
+export const RANDOM_NAMES = ["Ari", "Mira", "Nora", "Iris", "Léo", "Sacha", "Noé", "Alix"];
 export const ELEMENTS = { fire: "Feu", ice: "Glace", wind: "Vent", earth: "Terre" };
 export const WEAPONS = { sword: "Épées", axe: "Haches", hammer: "Masses et marteaux", spear: "Lances", bow: "Arcs et arbalètes", dagger: "Dagues", unarmed: "Mains nues", catalyst: "Catalyseurs" };
 export const SLOTS = { main: "Arme principale", off: "Arme secondaire", helmet: "Casque", chest: "Plastron", legs: "Jambières", boots: "Bottes", gloves: "Gants", accessory1: "Accessoire 1", accessory2: "Accessoire 2" };

@@ -31,6 +31,63 @@ test("creates a life and persists the selected character", async ({ page }) => {
   expect(savedRun).toMatchObject({ name: "Mira", age: 16, classId: "none", jobId: "none" });
 });
 
+test("uses a random name when the name is empty and shows the complete summary", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+
+  const savedRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(savedRun.name).toMatch(/^[A-Za-zÀ-ÿ-]+$/);
+  await expect(page.locator("#tab-content")).toContainText("Classe : Sans classe");
+  await expect(page.locator("#tab-content")).toContainText("Métier : Sans métier");
+  await expect(page.locator("#tab-content")).toContainText("PV");
+  await expect(page.locator("#tab-content")).toContainText("Mana");
+  await expect(page.locator("#event-log")).toContainText("Naissance");
+});
+
+test("only displays inherited domains above beginner with their best character and effect", async ({ page }) => {
+  await page.locator("#name-input").fill("Nora");
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.legacy.heritageDomains.sword.lastLevel = 0;
+    save.legacy.heritageDomains.class.lastLevel = 1;
+    save.legacy.heritageDomains.class.lastCharacter = "Mira";
+    save.legacy.heritageDomains.class.permanent = { lifeExpectancy: 1 };
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Héritage" }).click();
+
+  await expect(page.locator("#tab-content")).toContainText("Meilleur rang atteint : Novice · par Mira");
+  await expect(page.locator("#tab-content")).toContainText("Effet concret : +1 ans d'espérance de vie");
+  await expect(page.locator("#tab-content")).not.toContainText("Épées");
+});
+
+test("class and job levels add growth experience and half a year each to life expectancy", async ({ page }) => {
+  await page.locator("#name-input").fill("Iris");
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "mage";
+    save.run.jobId = "farmer";
+    save.run.classXP = 8;
+    save.run.jobXP = 8;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  await page.getByRole("button", { name: "Actions" }).click();
+  await page.getByRole("button", { name: "Travailler" }).click();
+  await page.locator('[data-action="work"]').click();
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+
+  expect(after.jobXP).toBe(10.5);
+  expect(after.classXP).toBe(9);
+  await expect(page.locator("#tab-content")).toContainText("Bonus de niveaux : +1.0 ans");
+  expect(after.jobXP).toBeGreaterThan(before.jobXP);
+});
+
 test("an action advances the age and writes to the life log", async ({ page }) => {
   await page.locator("#name-input").fill("Nora");
   await page.getByRole("button", { name: "Commencer à 16 ans" }).click();

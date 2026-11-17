@@ -4,7 +4,7 @@ Retry RPG est un RPG textuel jouable dans un navigateur moderne, sans service ex
 
 ## Créer une génération
 
-Le nom, la classe et le métier sont choisis à la naissance. Les classes et métiers déjà découverts par la lignée sont proposés lors des générations suivantes. Les héritages augmentent les statistiques initiales ou accélèrent un apprentissage, mais ne copient pas les niveaux de maîtrise de la génération précédente.
+Le nom, la classe et le métier sont choisis à la naissance. Si le nom est laissé vide, un prénom est tiré aléatoirement. Les classes et métiers déjà découverts par la lignée sont proposés lors des générations suivantes. Les héritages augmentent les statistiques initiales ou accélèrent un apprentissage, mais ne copient pas les niveaux de maîtrise de la génération précédente.
 
 Les statistiques principales sont Force, Magie, Agilité, Constitution, Savoir et Chance. Elles déterminent notamment les dégâts, la défense, le mana, la régénération, les résistances et le risque d'une rencontre en exploration. Les maîtrises utilisent les rangs Débutant, Novice, Apprenti, Initié, Confirmé, Expert et Maître.
 
@@ -91,7 +91,7 @@ Le commerce renouvelle son stock tous les cinq ans. Les équipements occupent ne
 
 ## Héritage et fin de vie
 
-Les huit maîtrises d'armes, les quatre affinités élémentaires, la maîtrise de classe, les quatre métiers et la Concentration du mana possèdent chacune un passif héritable. Le meilleur rang atteint est mémorisé par domaine ; la valeur correspondante s'ajoute aux générations suivantes et se cumule sans diminuer. Les maîtrises actives sont recréées à zéro à chaque naissance.
+Les huit maîtrises d'armes, les quatre affinités élémentaires, la maîtrise de classe, les quatre métiers et la Concentration du mana possèdent chacune un passif héritable. Le rang Débutant ne donne aucun bonus et n'est pas affiché dans le menu Héritage. Au-dessus de Débutant, chaque rang augmente les XP gagnés dans la classe ou le métier concerné et ajoute 0,5 an d'espérance de vie par niveau actif. Le meilleur rang atteint est mémorisé par domaine avec le personnage source ; la valeur correspondante s'ajoute aux générations suivantes et se cumule sans diminuer. Les maîtrises actives sont recréées à zéro à chaque naissance.
 
 Une mort par vieillissement, maladie ou combat termine la génération, conserve l'historique et peut transmettre des talents d'apprentissage. **Nouvelle vie** abandonne volontairement la génération sans compter une mort. Le menu Héritage affiche les classes, métiers, talents, découvertes et personnages terminés.
 
