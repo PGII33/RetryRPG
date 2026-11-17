@@ -113,6 +113,25 @@ npx playwright install chromium
 npm test
 ```
 
+Les tests sont aussi exécutés automatiquement par GitHub Actions sur chaque
+pull request et chaque push sur `main`. Une publication GitHub Pages n'est
+effectuée qu'après le succès des tests sur `main`.
+
+## Déploiement GitHub Pages
+
+Le workflow `.github/workflows/pages.yml` publie automatiquement le contenu
+du dépôt sur GitHub Pages après validation. Dans les paramètres du dépôt,
+configurer **Pages > Build and deployment > Source** sur **GitHub Actions**.
+
+Le site sera disponible sous le chemin du dépôt :
+
+```text
+https://<compte>.github.io/<nom-du-projet>/
+```
+
+Les ressources du jeu utilisent des chemins relatifs afin de fonctionner
+correctement sous ce sous-chemin, et non uniquement à la racine du domaine.
+
 ## Organisation du code
 
 - `app.js` orchestre l'état d'une génération, les actions et le rendu de l'interface.
