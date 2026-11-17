@@ -43,6 +43,20 @@ test("uses a random name when the name is empty and shows the complete summary",
   await expect(page.locator("#event-log")).toContainText("Naissance");
 });
 
+test("shows equipment stat contributions separately in the summary", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.stats.luck = 3;
+    save.run.equipment.accessory1 = "luck-charm";
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+
+  await expect(page.locator("#tab-content")).toContainText("Chance 5.0 (2.0)");
+});
+
 test("only displays inherited domains above beginner with their best character and effect", async ({ page }) => {
   await page.locator("#name-input").fill("Nora");
   await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
@@ -110,7 +124,56 @@ test("uses the historical class level when gaining class experience", async ({ p
   await page.locator('[data-attack="mana-sphere"]').click();
 
   const savedRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
-  expect(savedRun.classXP).toBe(2);
+  expect(savedRun.classXP).toBe(1.25);
+});
+
+test("evolves a mage into an unlocked fire mage", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "mage";
+    save.run.elementMastery.fire.xp = 8;
+    save.legacy.unlockedClasses.push("fireMage");
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Classes / métiers" }).click();
+  await page.locator('[data-select-class="fireMage"]').click();
+
+  const savedRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(savedRun.classId).toBe("fireMage");
+  expect(savedRun.learned).toContain("fire-sphere");
+});
+
+test("supports four attack slots with drag and drop removal", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.learned = ["punch", "mana-sphere", "fire"];
+    save.run.equippedAttacks = ["punch", null, null, null];
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Stats combat" }).click();
+  await page.evaluate(() => {
+    const move = (attack, slot) => {
+      const transfer = new DataTransfer();
+      const source = document.querySelector(`[data-drag-attack="${attack}"]`);
+      const target = document.querySelector(`[data-attack-slot="${slot}"]`);
+      source.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: transfer }));
+      target.dispatchEvent(new DragEvent("dragover", { bubbles: true, dataTransfer: transfer }));
+      target.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer: transfer }));
+    };
+    move("mana-sphere", 1);
+    move("fire", 2);
+  });
+  const equipped = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run.equippedAttacks);
+
+  expect(equipped).toEqual(["punch", "mana-sphere", "fire", null]);
+  await page.locator('[data-remove-attack-slot="1"]').click();
+  await expect(page.locator('[data-attack-slot="1"]')).toContainText("Emplacement vide");
 });
 
 test("an action advances the age and writes to the life log", async ({ page }) => {

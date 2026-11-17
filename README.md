@@ -19,7 +19,7 @@ Les statistiques principales sont Force, Magie, Agilité, Constitution, Savoir e
 | Rôdeur | Effectuer 3 explorations |
 | Alchimiste | Trouver 4 objets |
 
-Une classe choisie reste celle de la génération. Les classes gagnent de l'expérience grâce aux statistiques associées et aux combats. Chaque classe possède aussi une attaque dédiée, disponible dans les attaques apprises.
+Une classe choisie peut évoluer vers une classe cachée débloquée pendant la génération. Les classes gagnent de l'expérience grâce aux statistiques associées, aux combats et à l'utilisation de leur attaque dédiée. Les niveaux historiques augmentent aussi les gains de progression.
 
 ## Classes cachées
 
@@ -74,7 +74,7 @@ Les zones disponibles sont la Forêt ancienne, les Ruines oubliées, la Crypte m
 
 ## Combat
 
-Les combats sont au tour par tour, en mode Manuel ou Automatique. Les attaques utilisent la précision, les résistances, les coups critiques, les PV et le mana. Les maîtrises d'armes progressent lorsque la catégorie est travaillée et les techniques apprises peuvent être placées dans les quatre emplacements d'attaque.
+Les combats sont au tour par tour, en mode Manuel ou Automatique. Les attaques utilisent la précision, les résistances, les coups critiques, les PV et le mana. Les maîtrises d'armes progressent lorsque la catégorie est travaillée ou utilisée en combat. Les attaques apprises se placent par glisser-déposer dans les quatre emplacements d'attaque.
 
 Un combat terminé compte comme une seule action de vie : les tours internes ne vieillissent pas le personnage. Le journal de combat détaille la zone, l'ennemi, les actions et le résultat.
 
@@ -88,7 +88,7 @@ Le journal de vie est daté uniquement par l'âge, par exemple `16 ans : naissan
 
 Les maladies ont une gravité et une progression ; elles peuvent empirer avec le temps. Les potions et le repos offrent des moyens de récupération.
 
-Le commerce renouvelle son stock tous les cinq ans. Les équipements occupent neuf emplacements et ajoutent des bonus soumis à des prérequis statistiques. Les objets de valeur, matériaux et consommables peuvent être vendus ou utilisés.
+Le commerce renouvelle son stock tous les cinq ans. Les équipements occupent neuf emplacements et ajoutent des bonus soumis à des prérequis statistiques. Le résumé affiche les statistiques cumulées et la part fournie par l'équipement. Les objets de valeur, matériaux et consommables peuvent être vendus ou utilisés.
 
 ## Héritage et fin de vie
 
