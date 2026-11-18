@@ -2,12 +2,12 @@ export const STATS = [
   ["strength", "Force"], ["magic", "Magie"], ["agility", "Agilité"],
   ["constitution", "Constitution"], ["knowledge", "Savoir"], ["luck", "Chance"]
 ];
-export const RANDOM_NAMES = ["Ari", "Mira", "Nora", "Iris", "Léo", "Sacha", "Noé", "Alix", "Micky", "Vincent", "Ethan", "Lucien", "Aloyse", "Anna", "Léa", "Thiméeo", "Sandy", "Alyson", "Clément", "Nicolas"];
+export const RANDOM_NAMES = ["Ari", "Mira", "Nora", "Iris", "Léo", "Sacha", "Noé", "Alix", "Micky", "Vincent", "Ethan", "Lucien", "Aloyse", "Anna", "Léa", "Thiméo", "Sandy", "Alyson", "Clément", "Nicolas", "Bob", "Tim"];
 export const ELEMENTS = { fire: "Feu", ice: "Glace", wind: "Vent", earth: "Terre" };
 export const WEAPONS = { sword: "Épées", axe: "Haches", hammer: "Masses et marteaux", spear: "Lances", bow: "Arcs et arbalètes", dagger: "Dagues", unarmed: "Mains nues", catalyst: "Catalyseurs" };
 export const SLOTS = { main: "Arme principale", off: "Arme secondaire", helmet: "Casque", chest: "Plastron", legs: "Jambières", boots: "Bottes", gloves: "Gants", accessory1: "Accessoire 1", accessory2: "Accessoire 2" };
-export const MASTERY_LEVELS = ["Débutant", "Novice", "Apprenti", "Initié", "Confirmé", "Expert", "Maître"];
-export const MASTERY_XP = [0, 5, 15, 40, 70, 105, 150];
+export const MASTERY_LEVELS = ["Débutant", "Apprenti", "Initié", "Adepte", "Confirmé", "Expert", "Maître", "Légende"];
+export const MASTERY_XP = [0, 5, 15, 40, 70, 105, 150, 500];
 export const MASTERY_DOMAINS = {
   ...Object.fromEntries(Object.entries(WEAPONS).map(([id, name]) => [id, {
     label: name, source: "Armes", passive: id === "hammer" ? { bluntRes: 1.2, damage: 1.5 } : id === "bow" ? { accuracy: 1.5, attackSpeed: 1 } : id === "dagger" ? { accuracy: 1, evasion: 1.2 } : id === "catalyst" ? { magicPower: 1.5, manaRegen: .3 } : id === "unarmed" ? { defense: 1, damage: 1 } : { damage: 1.2, accuracy: .5 }
