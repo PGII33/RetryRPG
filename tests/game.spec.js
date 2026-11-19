@@ -102,7 +102,7 @@ test("only displays inherited domains above beginner with their best character a
   await page.getByRole("button", { name: "Héritage" }).click();
 
   await expect(page.locator("#tab-content")).toContainText("Mage");
-  await expect(page.locator("#tab-content")).toContainText("Meilleur rang atteint : Novice · par Mira");
+  await expect(page.locator("#tab-content")).toContainText("Meilleur rang atteint : Apprenti · par Mira");
   await expect(page.locator("#tab-content")).toContainText("Effets : +0.5 ans d'espérance de vie");
   await expect(page.locator("#tab-content")).not.toContainText("Épées");
 });
@@ -420,8 +420,8 @@ test("includes primary stats and class/job levels in character history", async (
       classId: "warrior",
       jobId: "farmer",
       age: 24,
-      classLevel: "Novice (8 XP)",
-      jobLevel: "Apprenti (24 XP)"
+      classLevel: "Apprenti (8 XP)",
+      jobLevel: "Initié (24 XP)"
     }];
     localStorage.setItem(key, JSON.stringify(save));
   });
@@ -429,6 +429,6 @@ test("includes primary stats and class/job levels in character history", async (
   await page.getByRole("button", { name: "Héritage" }).click();
   await expect(page.locator("#tab-content")).toContainText("Mira");
   await expect(page.locator("#tab-content")).toContainText("Force 7");
-  await expect(page.locator("#tab-content")).toContainText("Classe : Guerrier (Novice (8 XP))");
-  await expect(page.locator("#tab-content")).toContainText("Métier : Fermier (Apprenti (24 XP))");
+  await expect(page.locator("#tab-content")).toContainText("Classe : Guerrier (Apprenti (8 XP))");
+  await expect(page.locator("#tab-content")).toContainText("Métier : Fermier (Initié (24 XP))");
 });
