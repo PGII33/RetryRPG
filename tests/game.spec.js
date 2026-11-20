@@ -14,7 +14,7 @@ test("loads the creation screen without runtime errors", async ({ page }) => {
 
   await expect(page.locator("#create-screen")).toBeVisible();
   await expect(page.locator("#class-options input")).toHaveCount(5);
-  await expect(page.locator("#job-options input")).toHaveCount(5);
+  await expect(page.locator("#job-options input")).toHaveCount(7);
   expect(pageErrors).toEqual([]);
 });
 
