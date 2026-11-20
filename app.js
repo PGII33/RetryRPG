@@ -106,10 +106,14 @@ function classHeritageValues(id, rank) {
   const result = { lifeExpectancy: +(rank * .5).toFixed(2) };
   const main = CLASSES[id]?.stat;
   const evolutionStats = {
-    knight: [{ constitution: .5 }, { constitution: .5, strength: .5 }],
+    knight: [{ strength: .5 }, { strength: .5, constitution: .5 }],
     lancer: [{ strength: .5 }, { strength: .5, agility: .5 }],
+    hammerer : [{ strength: .5 }, { strength: .5, constitution: .5 }],
+    reaver : [{ strength: .5 }, { strength: .5, agility: .5 }],
     archer: [{ agility: .5 }, { agility: .5, strength: .5 }],
+    rogue: [{ agility: .5 }, { agility: .5, luck: .5 }],
     fireMage: [{ magic: .5 }, { magic: .5, luck: .5 }],
+    evoker: [{ magic: .5 }, { magic: .5, knowledge: .5 }],
     iceMage: [{ magic: .5 }, { magic: .5, constitution: .5 }],
     windMage: [{ magic: .5 }, { magic: .5, agility: .5 }],
     earthMage: [{ magic: .5 }, { magic: .5, constitution: .5 }],
@@ -122,11 +126,6 @@ function classHeritageValues(id, rank) {
     if (!values) continue;
     Object.entries(values).forEach(([key, value]) => { result[key] = +((result[key] || 0) + value).toFixed(2); });
   }
-  return result;
-}
-function addValues(left = {}, right = {}) {
-  const result = { ...left };
-  Object.entries(right).forEach(([key, value]) => { result[key] = +((result[key] || 0) + value).toFixed(2); });
   return result;
 }
 function normalizeHeritage() {
@@ -493,23 +492,54 @@ renderCreate();
 const STUDIES = [
   { id: "general", name: "Études générales", description: "Lire, observer et structurer les connaissances.", gains: { knowledge: .25, magic: .2 }, available: () => true },
   { id: "mana", name: "Étude sur le mana", description: "Comprendre les flux de mana et préparer les techniques arcaniques.", gains: { magic: .35, knowledge: .15 }, available: r => ["mage", "fireMage", "iceMage", "windMage", "earthMage", "primordial"].includes(r.classId) },
-  ...Object.entries(ELEMENTS).map(([id, name]) => ({ id: `element-${id}`, name: `Étude élémentaire : ${name}`, description: `Développer uniquement l'affinité ${name} et ses évolutions.`, element: id, gains: { knowledge: .1 }, available: r => isMageClass(r.classId) }))
+  ...Object.entries(ELEMENTS).map(([id, name]) => ({ id: `element-${id}`, name: `Étude élémentaire : ${name}`, description: `Développer uniquement l'affinité ${name} et ses évolutions.`, element: id, gains: { knowledge: .1 }, available: r => isClassOrSubclassOf(r.classId, "mage")}))
 ];
-function isMageClass(id) {
-  let current = id;
-  while (current && CLASSES[current]) {
-    if (current === "mage") return true;
-    current = CLASSES[current].parent;
-  }
-  return false;
-}
 function elementalStudyGain(classId, element) {
   return 3 + (CLASSES[classId]?.element === element ? 2 : 0);
 }
+const CLASS_WEAPON_TRAINING = {
+  warrior: ["sword", "axe", "hammer"],
+  ranger: ["bow", "dagger"],
+  mage: ["catalyst"]
+};
 const TRAINING = [
-  { id: "physical", category: "Développement physique", name: "Développement physique", description: "Renforcer Force, Agilité et Constitution.", gains: { strength: .22, agility: .16, constitution: .22 } },
-  ...Object.entries(WEAPONS).filter(([id]) => id !== "unarmed").map(([id, name]) => ({ id: `weapon-${id}`, category: "Techniques de combat", name: `S'entraîner : ${name}`, description: `Améliorer la maîtrise des ${name.toLowerCase()} et débloquer des techniques.`, weapon: id, requiresWarrior: true, gains: { strength: .1, agility: .1 } })),
-  { id: "concentration", category: "Techniques magiques", name: "Concentration de mana", description: "Développer une technique qui améliore durablement la régénération du mana.", magicOnly: true, gains: { magic: .2, concentration: 1 } }
+  {
+    id: "physical",
+    category: "Développement physique",
+    name: "Développement physique",
+    description: "Renforcer Force, Agilité et Constitution.",
+    gains: {
+      strength: .22,
+      agility: .16,
+      constitution: .22
+    }
+  },
+
+  ...Object.entries(WEAPONS)
+    .filter(([id]) => id !== "unarmed")
+    .map(([id, name]) => ({
+      id: `weapon-${id}`,
+      category: "Techniques de combat",
+      name: `S'entraîner : ${name}`,
+      description: `Améliorer la maîtrise des ${name.toLowerCase()} et débloquer des techniques.`,
+      weapon: id,
+      gains: {
+        strength: .1,
+        agility: .1
+      }
+    })),
+
+  {
+    id: "concentration",
+    category: "Techniques magiques",
+    name: "Concentration de mana",
+    description: "Développer une technique qui améliore durablement la régénération du mana.",
+    magicOnly: true,
+    gains: {
+      magic: .2,
+      concentration: 1
+    }
+  }
 ];
 function runState() {
   const r = save.run;
@@ -537,14 +567,48 @@ function availableStudies() { return STUDIES.filter(study => study.available(sav
 function hasWeaponInInventory(weapon) {
   return ITEMS.some(i => i.kind === "equipment" && i.weapon === weapon && qty(i.id) > 0);
 }
-function isWarriorClass(id) {
-  return id === "warrior" || Boolean(CLASSES[id]?.weapon);
+function isClassOrSubclassOf(classId, parentClassId) {
+  let currentId = classId;
+
+  while (currentId) {
+    if (currentId === parentClassId) return true;
+
+    const currentClass = CLASSES[currentId];
+
+    if (!currentClass) return false;
+
+    currentId = currentClass.parent;
+  }
+
+  return false;
 }
 function availableTraining() {
-  return TRAINING
-    .filter(activity => !activity.requiresWarrior || isWarriorClass(save.run.classId))
-    .filter(activity => !activity.weapon || hasWeaponInInventory(activity.weapon))
-    .filter(activity => !activity.magicOnly || ["mage", "fireMage", "iceMage", "windMage", "earthMage", "primordial"].includes(save.run.classId));
+  const classId = save.run.classId;
+
+  return TRAINING.filter(activity => {
+    // Entraînement physique accessible à tous
+    if (activity.id === "physical") return true;
+
+    // Entraînement aux armes
+    if (activity.weapon) {
+      const requiredClass = Object.entries(CLASS_WEAPON_TRAINING)
+        .find(([, weapons]) => weapons.includes(activity.weapon))?.[0];
+
+      if (!requiredClass) return false;
+
+      const hasRequiredClass = isClassOrSubclassOf(classId, requiredClass);
+      const hasRequiredWeapon = hasWeaponInInventory(activity.weapon);
+
+      return hasRequiredClass && hasRequiredWeapon;
+    }
+
+    // Entraînement magique
+    if (activity.magicOnly) {
+      return isClassOrSubclassOf(classId, "mage");
+    }
+
+    return true;
+  });
 }
 function activityCard(activity, action, extra = "") {
   const accessibleName = activity.element ? ` aria-label="${activity.name}"` : "";
@@ -695,7 +759,7 @@ function finalTrainingMarkup() {
   const weapons = activities.filter(activity => activity.weapon).map(activity => actionButton({ name: activity.name, description: activity.description, gains: activity.gains }, `train:${activity.id}`, `${masteryText(save.run.weaponMastery[activity.weapon])} · ${fmtPassiveValues(masteryDomain(activity.weapon).passive)}`)).join("");
   const physical = activities.find(activity => activity.id === "physical");
   const concentration = activities.find(activity => activity.id === "concentration");
-  return `<div class="panel"><h2>Entraînement</h2><p class="muted">Les armes nécessitent un équipement possédé et une classe de Guerrier ou une évolution martiale. La progression de classe vient des statistiques associées ou des combats.</p><div class="action-grid">${physical ? actionButton(physical, "train:physical") : ""}${weapons}${concentration ? actionButton(concentration, "train:concentration", `Niveau ${save.run.techniqueMastery.concentration} · héritage : ${fmtPassiveValues(masteryDomain("concentration").passive)}`) : ""}</div></div>`;
+  return `<div class="panel"><h2>Entraînement</h2><p class="muted">Chaque entraînement d'arme est réservé à sa branche de classe et nécessite de posséder l'arme correspondante. La progression de classe vient des statistiques associées ou des combats.</p><div class="action-grid">${physical ? actionButton(physical, "train:physical") : ""}${weapons}${concentration ? actionButton(concentration, "train:concentration", `Niveau ${save.run.techniqueMastery.concentration} · héritage : ${fmtPassiveValues(masteryDomain("concentration").passive)}`) : ""}</div></div>`;
 }
 trainingMarkup = finalTrainingMarkup;
 function characterHistoryMarkup() {

@@ -19,6 +19,8 @@ export const MASTERY_DOMAINS = {
   merchant: { label: "Marchand", source: "Métiers", passive: { workGold: 1, sellBonus: 2 } },
   scholar: { label: "Érudit", source: "Métiers", passive: { workGold: 1, studyYield: .8, magicPower: 1 } },
   blacksmith: { label: "Forgeron", source: "Métiers", passive: { workGold: 1, equipmentPower: 1 } },
+  alchemist: { label: "Alchimiste", source: "Métiers", passive: { workGold: 1, lifeRegen: 1, magicPower: .5 } },
+  gambler : { label: "Parieur", source: "Métiers", passive: { workGold: 1, luck: 1.5 } },
   concentration: { label: "Concentration du mana", source: "Techniques", passive: { manaRegen: .8, manaEfficiency: 1.5 } }
 };
 export const STAT_LABELS = {
@@ -34,24 +36,29 @@ export const CLASSES = {
   none: { name: "Sans classe", description: "Une voie libre, sans bonus de spécialisation.", stat: null, unlock: () => true },
   warrior: { name: "Guerrier", description: "Force, défense physique et maîtrise des armes.", stat: "strength", unlock: s => s.run.maxStats.strength >= 6 },
   knight: { name: "Chevalier", description: "Évolution du Guerrier spécialisée dans les épées.", stat: "strength", parent: "warrior", hidden: true, weapon: "sword", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.sword.xp >= 8 },
-  lancer: { name: "Lancier", description: "Évolution du Guerrier spécialisée dans les lances.", stat: "strength", parent: "warrior", hidden: true, weapon: "spear", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.spear.xp >= 8 },
-  archer: { name: "Archer", description: "Évolution du Guerrier spécialisée dans les arcs.", stat: "agility", parent: "warrior", hidden: true, weapon: "bow", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.bow.xp >= 8 },
+  lancer: { name: "Lancier", description: "Évolution du Guerrier spécialisée dans les lances.", stat: "strength", parent: "warrior", hidden: true, weapon: "spear", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.spear.xp >= 8 },  
+  hammerer : { name: "Marteleur", description: "Évolution du Guerrier spécialisée dans les marteaux.", stat: "strength", parent: "warrior", hidden: true, weapon: "hammer", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.hammer.xp >= 8 },
+  reaver : { name: "Hacheur", description: "Évolution du Guerrier spécialisée dans les haches.", stat: "strength", parent: "warrior", hidden: true, weapon: "axe", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.axe.xp >= 8 },
   mage: { name: "Mage", description: "Mana, puissance magique et théorie arcanique.", stat: "magic", unlock: s => s.run.studyActions >= 4 },
   fireMage: { name: "Mage de feu", description: "Spécialiste des sorts ardents et des dégâts prolongés.", stat: "magic", element: "fire", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.fire.xp >= 8 },
   iceMage: { name: "Mage de glace", description: "Spécialiste du contrôle et du ralentissement.", stat: "magic", element: "ice", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.ice.xp >= 8 },
   windMage: { name: "Mage de vent", description: "Spécialiste des sorts rapides et de l'esquive.", stat: "magic", element: "wind", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.wind.xp >= 8 },
   earthMage: { name: "Mage de terre", description: "Spécialiste des sorts lourds et de la résistance.", stat: "magic", element: "earth", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.earth.xp >= 8 },
-  rogue: { name: "Voleur", description: "Précision, esquive et dagues.", stat: "agility", parent: "warrior", hidden: true, weapon: "dagger", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.dagger.xp >= 6 },
-  ranger: { name: "Rôdeur", description: "Exploration, arcs et survie.", stat: "constitution", unlock: s => s.run.explorations >= 3 },
-  alchemist: { name: "Alchimiste", description: "Savoir, soins et consommables.", stat: "knowledge", unlock: s => s.run.itemsFound >= 4 },
-  primordial: { name: "Arcaniste primordial", description: "Affinité rare avec les quatre éléments.", stat: "magic", parent: "mage", hidden: true, unlock: s => s.legacy.primalHeart === true }
+  evoker: { name: "Évocateur", description: "Spécialiste des catalyseurs, de la canalisation du mana et de l'amplification des sorts.", stat: "magic", parent: "mage", hidden: true, unlock: s => s.run.weaponMastery.catalyst.xp >= 8},
+  primordial: { name: "Arcaniste primordial", description: "Affinité rare avec les quatre éléments.", stat: "magic", parent: "mage", hidden: true, unlock: s => s.legacy.primalHeart === true },
+  ranger: { name: "Rôdeur", description: "Exploration, arcs et survie.", stat: "agility", unlock: s => s.run.explorations >= 3 },
+  archer: { name: "Archer", description: "Évolution du Rôdeur spécialisée dans les arcs.", stat: "agility", parent: "ranger", hidden: true, weapon: "bow", unlock: s => s.run.classId === "ranger" && s.run.weaponMastery.bow.xp >= 8 },
+  rogue: { name: "Voleur", description: "Évolution du Rôdeur spécialisée dans la précision et les dagues.", stat: "agility", parent: "ranger", hidden: true, weapon: "dagger", unlock: s => s.run.classId === "ranger" && s.run.weaponMastery.dagger.xp >= 6 },
+  luckyman: { name: "Fortuneur", description: "Chance élevée pour des tirages avantageux.", stat: "luck", unlock: s => s.run.stats.luck >= 6 }
 };
 export const JOBS = {
   none: { name: "Sans métier", description: "Travail simple, revenus faibles.", stat: null, unlock: () => true, work: 12 },
   farmer: { name: "Fermier", description: "Agriculture : revenus stables et constitution.", stat: "constitution", unlock: s => s.run.workActions >= 3, work: 28 },
   merchant: { name: "Marchand", description: "Commerce : meilleurs revenus et prix de vente.", stat: "luck", unlock: s => s.legacy.goldEarned >= 90, work: 38 },
+  gambler: { name: "Parieur", description: "Chance : tirages, jeux et opportunités.", stat: "luck", unlock: s => s.run.stats.luck >= 6, work: 10 },
   scholar: { name: "Érudit", description: "Recherche : savoir, mana et progression élémentaire.", stat: "knowledge", unlock: s => s.run.studyActions >= 3, work: 18 },
-  blacksmith: { name: "Forgeron", description: "Forge : matériaux, équipement et maîtrise des marteaux.", stat: "strength", unlock: s => s.run.materials >= 3, work: 32 }
+  blacksmith: { name: "Forgeron", description: "Forge : matériaux, équipement et maîtrise des marteaux.", stat: "strength", unlock: s => s.run.materials >= 3, work: 32 },
+  alchemist: { name: "Alchimiste", description: "Savoir, soins et consommables.", stat: "knowledge", unlock: s => s.run.itemsFound >= 4, work: 22 }
 };
 Object.entries(CLASSES).filter(([id]) => id !== "none").forEach(([id, data]) => {
   MASTERY_DOMAINS[id] = { label: data.name, source: "Classes", passive: { lifeExpectancy: .5 } };
@@ -125,7 +132,11 @@ export const ATTACKS = [
   { id: "ice-spear", name: "Lance de glace", type: "magic", damage: "ice", element: "ice", power: 18, accuracy: 93, mana: 9, classId: "iceMage", desc: "Un projectile glacé du Mage de glace." },
   { id: "wind-cyclone", name: "Cyclone tranchant", type: "magic", damage: "wind", element: "wind", power: 18, accuracy: 96, mana: 8, classId: "windMage", desc: "Un courant violent du Mage de vent." },
   { id: "earth-shard", name: "Éclat tellurique", type: "magic", damage: "earth", element: "earth", power: 20, accuracy: 86, mana: 10, classId: "earthMage", desc: "Une masse de terre condensée." },
-  { id: "origin-ray", name: "Rayon des origines", type: "magic", damage: "magic", power: 24, accuracy: 88, mana: 12, classId: "primordial", desc: "La puissance des quatre éléments réunis." }
+  { id: "origin-ray", name: "Rayon des origines", type: "magic", damage: "magic", power: 24, accuracy: 88, mana: 12, classId: "primordial", desc: "La puissance des quatre éléments réunis." },
+  { id: "lucky-punch", name: "Lucky Punch", type: "physical", damage: "blunt", power: 5, accuracy: 85, mana: 0, classId: "luckyman", desc: "Un coup imprévisible dont la puissance dépend de la chance (TODO: dépendre de la chance)."},
+  { id: "hammerer-smash", name: "Impact dévastateur", type: "physical", damage: "blunt", power: 21, accuracy: 84, mana: 0, weapon: "hammer", classId: "hammerer", desc: "Un coup de marteau écrasant qui libère toute la puissance du Marteleur." },
+  { id: "reaver-cleave", name: "Entaille sauvage", type: "physical", damage: "slash", power: 19, accuracy: 91, mana: 0, weapon: "axe", classId: "reaver", desc: "Un puissant coup de hache capable de fendre les défenses adverses." },
+  { id: "evoker-overload", name: "Surcharge arcanique", type: "magic", damage: "magic", power: 22, accuracy: 93, mana: 11, weapon: "catalyst", classId: "evoker", desc: "Le catalyseur concentre le mana pour libérer une décharge arcanique dévastatrice." }
 ];
 export const ZONES = [
   { id: "forest", name: "Forêt ancienne", difficulty: 1, description: "Loups et gobelins entre les racines.", enemy: ["Loup ancien", "Gobelin rôdeur"], reward: ["ore", "health-potion"] },
