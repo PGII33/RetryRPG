@@ -327,7 +327,7 @@ function completeAction(text, gains = {}) {
     .filter(([key]) => STATS.some(([id]) => id === key) && save.run.stats[key] !== beforeStats[key])
     .map(([key]) => `+${(save.run.stats[key] - beforeStats[key]).toFixed(2)} ${statName(key)}`);
   if (classGain) details.push(`+${classGain} XP de classe`);
-  unlockChecks(); log(`${text}${details.length ? ` · ${details.join(" · ")}` : ""}`); persist(); activeTab = "summary"; renderGame();
+  unlockChecks(); log(`${text}${details.length ? ` · ${details.join(" · ")}` : ""}`); persist(); renderGame();
 }
 function contractDisease() { if (save.run.diseases.length) return; const names = [["Rhume", "Légère", 1], ["Fièvre des marais", "Modérée", 2], ["Peste grise", "Grave", 3]]; const d = names[Math.floor(Math.random() * names.length)]; save.run.diseases.push({ name: d[0], severity: d[1], progression: d[2] }); log(`Maladie contractée : ${d[0]} (${d[1]}).`); }
 function progressDisease() { save.run.diseases.forEach(d => { if (Math.random() < .35) { d.progression++; if (d.progression >= 4 && d.severity !== "Critique") { d.severity = d.severity === "Légère" ? "Modérée" : d.severity === "Modérée" ? "Grave" : "Critique"; d.progression = 0; log(`${d.name} s'aggrave : gravité ${d.severity}.`); } if (d.severity === "Critique" && Math.random() < .28) die(`La maladie ${d.name} devient mortelle.`); } }); }
