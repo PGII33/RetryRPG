@@ -131,6 +131,7 @@ test("uses previous best levels for growth experience and life expectancy", asyn
 
   expect(after.jobXP).toBe(2.5);
   expect(after.classXP).toBe(0);
+  await page.locator('[data-tab="summary"]').click();
   await expect(page.locator("#tab-content")).toContainText("Espérance de vie : 33.5 ans");
   await expect(page.locator("#tab-content")).not.toContainText("Potentiel de classe");
 });
