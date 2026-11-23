@@ -31,6 +31,7 @@ export function enemyFor(zone) {
 }
 
 export function startCombat(zoneId, force = false) {
+  if (combat) return;
   const z = ZONES.find(x => x.id === zoneId);
   if (!z) return;
   const r = runState();

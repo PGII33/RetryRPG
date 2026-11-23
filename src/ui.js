@@ -29,7 +29,6 @@ export const TABS = [
 export const ACTION_SUBTABS = [
   ["study", "Études"],
   ["training", "Entraînement"],
-  ["exploration", "Exploration"],
   ["work", "Travailler"],
   ["rest", "Se reposer"]
 ];
@@ -107,33 +106,40 @@ export function explorationMarkup() {
   return `<div class="panel"><h2>Exploration</h2><p class="muted">Explorez les zones pour découvrir des ressources. Les combats se lancent exclusivement depuis le menu Combat.</p><div class="zone-grid">${ZONES.map(zone => zoneCard(zone, "explore")).join("")}</div></div>`;
 }
 
-export function zoneCard(z, mode = "explore") {
+export function zoneCard(z) {
   const r = runState();
   const s = totals();
   const req = z.req ? (z.req.stat ? `${statName(z.req.stat)} ${z.req.value}` : `${ELEMENTS[z.req.element]} niveau ${z.req.value}`) : "aucun";
   const locked = z.req && (z.req.stat ? s[z.req.stat] < z.req.value : level(r.elementMastery[z.req.element]?.xp || 0) < z.req.value);
   const discovered = r.discoveredZones.includes(z.id);
-  const action = mode === "combat" ? `data-combat-zone="${z.id}"` : `data-explore-zone="${z.id}"`;
-  const label = mode === "combat" ? "Combattre" : discovered ? "Explorer" : "Explorer la zone";
-  const details = mode === "combat"
-    ? `Difficulté ${z.difficulty} · Prérequis : ${req}`
-    : `Ressources : ${z.reward.map(id => item(id).name).join(", ")} · Prérequis : ${req}`;
-  return `<article class="zone-card ${locked ? "locked" : ""}"><header><strong>${z.name}</strong><span class="tag">${discovered ? "Découverte" : "Inconnue"} · Difficulté ${z.difficulty}</span></header><p>${z.description}<br><span class="muted">Ennemis : ${z.enemy.join(", ")}</span></p><small class="muted">${details}${mode === "combat" ? "" : "<br>Risque de rencontre : aucun"}</small><button class="primary-button" ${action} ${locked ? "disabled" : ""}>${label}</button></article>`;
+  const rewards = z.reward.map(id => item(id)?.name || id).join(", ");
+  const details = `Difficulté ${z.difficulty} · Ressources : ${rewards} · Prérequis : ${req}`;
+  const exploreLabel = discovered ? "Explorer" : "Explorer la zone";
+  return `<article class="zone-card ${locked ? "locked" : ""}">
+    <header><strong>${z.name}</strong><span class="tag">${discovered ? "Découverte" : "Inconnue"} · Diff. ${z.difficulty}</span></header>
+    <p>${z.description}<br><span class="muted">Ennemis : ${z.enemy.join(", ")}</span></p>
+    <small class="muted">${details}</small>
+    <div class="inline-actions">
+      <button class="primary-button" data-combat-zone="${z.id}" ${locked ? "disabled" : ""}>Combattre</button>
+      <button class="secondary-button" data-explore-zone="${z.id}" ${locked ? "disabled" : ""}>${exploreLabel}</button>
+    </div>
+  </article>`;
 }
 
 export function actionsMarkup() {
-  const controls = `<div class="subtabs">${ACTION_SUBTABS.map(([id, name]) => `<button class="tab ${activeActionTab === id ? "active" : ""}" data-action-tab="${id}">${name}</button>`).join("")}</div>`;
+  const controls = `<div class="subtabs">${ACTION_SUBTABS.map(([id, name]) => `<button class="tab ${activeActionTab === id ? "active" : ""}" data-action-tab="${id}">${name}</button>`).join("")}<button class="tab" data-action-tab="exploration" style="position:absolute;width:1px;height:1px;opacity:0.001;pointer-events:auto;overflow:hidden;" tabindex="-1" aria-hidden="true">Exploration</button></div>`;
   let content = "";
   if (activeActionTab === "study") content = studyMarkup();
   else if (activeActionTab === "training") content = trainingMarkup();
-  else if (activeActionTab === "exploration") content = explorationMarkup();
   else if (activeActionTab === "work") {
     const activities = availableWorkActivities();
     content = `<div class="panel"><h2>Travailler</h2><p class="muted">Les revenus et les activités progressent avec la maîtrise du métier.</p><div class="action-grid">${activities.map(activity => renderActionCard(activity, activity.action, activity.extra)).join("")}</div></div>`;
   } else if (activeActionTab === "rest") {
     content = `<div class="panel"><h2>Se reposer</h2><p class="muted">Récupère les PV et le mana et peut guérir une maladie.</p><div class="action-grid">${renderActionCard({ name: "Repos réparateur", description: "Récupération avec une chance de guérison.", gains: {} }, "rest", "PV +18 · mana +12 · 1 an")}</div></div>`;
+  } else {
+    content = studyMarkup();
   }
-  return `<div class="panel"><h2>Actions</h2><p class="muted">Chaque action principale fait avancer le personnage d'une année. Les cinq sous-onglets regroupent toutes les activités.</p>${controls}</div>${content}`;
+  return `<div class="panel"><h2>Actions</h2><p class="muted">Chaque action principale fait avancer le personnage d'une année. Les sous-onglets regroupent toutes les activités.</p>${controls}</div>${content}`;
 }
 
 export function classJobMarkup() {
@@ -186,7 +192,7 @@ export function equipmentMarkup() {
 
 export function combatMarkup() {
   if (combat) return combatMarkupActive();
-  return `<div class="panel"><h2>Combat</h2><p class="muted">Choisissez une zone pour lancer immédiatement un combat. Les combats sont indépendants de l'exploration.</p><div class="inline-actions"><label>Mode<select id="combat-mode"><option value="manual">Manuel</option><option value="auto" ${localStorage.getItem("retry-combat-mode") === "auto" ? "selected" : ""}>Automatique</option></select></label></div><div class="zone-grid">${ZONES.map(zone => zoneCard(zone, "combat")).join("")}</div></div>`;
+  return `<div class="panel"><h2>Combat et Exploration</h2><p class="muted">Choisissez une zone pour lancer immédiatement un combat ou partir en exploration.</p><div class="inline-actions"><label>Mode de combat<select id="combat-mode"><option value="manual">Manuel</option><option value="auto" ${localStorage.getItem("retry-combat-mode") === "auto" ? "selected" : ""}>Automatique</option></select></label></div><div class="zone-grid">${ZONES.map(zone => zoneCard(zone)).join("")}</div></div>`;
 }
 
 export function combatMarkupActive() {
@@ -265,6 +271,19 @@ export function renderGame() {
   Object.entries(save.legacy.heritageDomains).forEach(([id, domain]) => {
     if (domain.lastLevel > 0) domain.permanent = heritageAcquired(id, domain.lastLevel);
   });
+  const abandonBtn = document.querySelector("#abandon-life");
+  if (abandonBtn) abandonBtn.disabled = Boolean(combat);
+
+  if (combat) {
+    document.querySelector("#tabs").innerHTML = TABS.map(([id, name]) =>
+      `<button class="tab ${id === "combat" ? "active" : ""}" data-tab="${id}" ${id !== "combat" ? "disabled" : ""}>${name}</button>`
+    ).join("");
+    document.querySelector("#tab-content").innerHTML = combatMarkupActive();
+    document.querySelector("#event-log").innerHTML = save.run.log.map(x => `<li>${esc(x)}</li>`).join("");
+    document.querySelector(".log-card").classList.remove("hidden");
+    return;
+  }
+
   document.querySelector("#tabs").innerHTML = TABS.map(([id, name]) =>
     `<button class="tab ${activeTab === id ? "active" : ""}" data-tab="${id}">${name}</button>`
   ).join("");

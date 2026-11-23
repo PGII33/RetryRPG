@@ -3,7 +3,7 @@ import {
 } from "./game-data.js";
 import { notify, statName, fmtBonuses, item } from "./game-helpers.js?v=3";
 import {
-  save, persist, runState, qty, addItem, removeItem, setSaveRun, setCombat, newRun
+  save, persist, runState, qty, addItem, removeItem, setSaveRun, setCombat, newRun, combat
 } from "./state.js";
 import {
   totals, lifeExpectancy, level, masteryText, growthXp, historicalLevel, recordLegacyMasteries, estimatedWork
@@ -189,6 +189,7 @@ export function rest() {
 }
 
 export function doAction(id) {
+  if (combat) return notify("Impossible d'effectuer une action pendant un combat.");
   const r = save.run;
   if (id.startsWith("study:")) {
     const type = id.slice(6);
@@ -415,6 +416,7 @@ export function doAction(id) {
 }
 
 export function exploreZone(zoneId) {
+  if (combat) return notify("Impossible d'explorer pendant un combat.");
   const z = ZONES.find(x => x.id === zoneId);
   if (!z) return;
   const r = runState();
@@ -440,6 +442,7 @@ export function exploreZone(zoneId) {
 }
 
 export function buy(id) {
+  if (combat) return;
   const i = item(id);
   if (!i || save.run.gold < i.price) return;
   save.run.gold -= i.price;
@@ -450,6 +453,7 @@ export function buy(id) {
 }
 
 export function sell(id) {
+  if (combat) return;
   const i = item(id);
   if (!i || !qty(id)) return;
   removeItem(id);
@@ -460,6 +464,7 @@ export function sell(id) {
 }
 
 export function useItem(id) {
+  if (combat) return notify("Impossible d'utiliser des objets pendant un combat.");
   const i = item(id);
   if (!i || !qty(id)) return;
   const r = save.run;
@@ -489,6 +494,7 @@ export function useItem(id) {
 }
 
 export function equip(id) {
+  if (combat) return;
   const i = item(id);
   if (!i || i.kind !== "equipment") return;
   const req = Object.entries(i.req || {}).some(([k, v]) => totals()[k] < v);
@@ -602,6 +608,7 @@ export function die(reason) {
 }
 
 export function abandonLife() {
+  if (combat) return notify("Impossible d'abandonner pendant un combat.");
   if (!save.run || !confirm("Tuer le personnage actuel et commencer une nouvelle vie ?")) return;
   die("Personnage tué volontairement pour commencer une nouvelle vie.");
 }

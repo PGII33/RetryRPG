@@ -1,5 +1,5 @@
 import {
-  persist, setActiveTab, setActiveActionTab, ensureSaveShape
+  persist, setActiveTab, setActiveActionTab, ensureSaveShape, combat
 } from "./src/state.js";
 import { renderCreate, renderGame } from "./src/ui.js";
 import {
@@ -10,6 +10,15 @@ import {
 import { startCombat, chooseAttack, autoTurn } from "./src/combat.js";
 
 function handleGameClick(e) {
+  if (combat) {
+    const attackBtn = e.target.closest("[data-attack]");
+    if (attackBtn) return chooseAttack(attackBtn.dataset.attack);
+
+    if (e.target.closest("[data-auto-turn]")) return autoTurn();
+
+    return;
+  }
+
   const tab = e.target.closest("[data-tab]");
   if (tab) {
     setActiveTab(tab.dataset.tab);
@@ -17,6 +26,10 @@ function handleGameClick(e) {
   }
   const actionTab = e.target.closest("[data-action-tab]");
   if (actionTab) {
+    if (actionTab.dataset.actionTab === "exploration") {
+      setActiveTab("combat");
+      return renderGame();
+    }
     setActiveActionTab(actionTab.dataset.actionTab);
     setActiveTab("actions");
     return renderGame();
