@@ -31,11 +31,11 @@ test("creates a life and persists the selected character", async ({ page }) => {
   expect(savedRun).toMatchObject({ name: "Mira", age: 16, classId: "none", jobId: "none" });
 });
 
-test("turns Nouvelle vie into a voluntary death", async ({ page }) => {
+test("turns Terminer sa vie into a voluntary death", async ({ page }) => {
   await page.locator("#name-input").fill("Mira");
   await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
   page.once("dialog", dialog => dialog.accept());
-  await page.getByRole("button", { name: "Nouvelle vie" }).click();
+  await page.getByRole("button", { name: "Terminer sa vie" }).click();
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")));
   expect(saved.run).toBeNull();
