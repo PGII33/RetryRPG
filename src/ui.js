@@ -1,6 +1,6 @@
 import {
   CLASSES, JOBS, STATS, STAT_LABELS, WEAPONS, ELEMENTS, SLOTS, ZONES, ATTACKS, RES_KEYS,
-  MASTERY_DOMAINS, MASTERY_LEVELS, MASTERY_XP
+  MASTERY_DOMAINS, MASTERY_LEVELS, MASTERY_XP, STATUS
 } from "./game-data.js";
 import { esc, fmtBonuses, fmtNumber, item, statName } from "./game-helpers.js?v=3";
 import {
@@ -55,6 +55,7 @@ export function optionMarkup(data, available, group, current = "none") {
 export function renderCreate() {
   document.querySelector("#create-screen").classList.toggle("hidden", Boolean(save.run));
   document.querySelector("#game-screen").classList.toggle("hidden", !save.run);
+  document.querySelector("#new-life")?.classList.toggle("hidden", !save.run);
   if (save.run) return renderGame();
   document.querySelector("#class-options").innerHTML = optionMarkup(CLASSES, save.legacy.unlockedClasses, "class");
   document.querySelector("#job-options").innerHTML = optionMarkup(JOBS, save.legacy.unlockedJobs, "job");
@@ -165,8 +166,13 @@ export function marketMarkup() {
 export function marketCard(i) {
   if (!i) return "";
   const owned = qty(i.id);
-  const kindDesc = i.kind === "equipment" ? "Équipement" : i.kind === "consumable" ? i.description : (i.description || "Objet spécial");
-  return `<article class="item-card"><header><strong>${i.name}</strong><span class="price">${i.price} or</span></header><small class="muted">${i.rarity} · ${kindDesc}</small><small class="muted">Possédé : ${owned} · Revente : ${i.sell} or</small><button class="mini-button" data-buy="${i.id}" ${save.run.gold < i.price ? "disabled" : ""}>Acheter</button></article>`;
+  const isEquip = i.kind === "equipment";
+  const slotName = isEquip ? (SLOTS[i.slot] || i.slot) : "";
+  const kindDesc = isEquip ? `Équipement · ${slotName}` : i.kind === "consumable" ? i.description : (i.description || "Objet spécial");
+  const statsBonus = isEquip && i.bonus ? `<p class="item-stats"><b>${fmtBonuses(i.bonus)}</b></p>` : "";
+  const equipDetails = isEquip ? `<small class="muted">Emplacement : ${slotName}</small>` : "";
+  const descInfo = isEquip && i.description ? `<p class="muted">${i.description}</p>` : "";
+  return `<article class="item-card"><header><strong>${i.name}</strong><span class="price">${i.price} or</span></header><small class="muted">${i.rarity} · ${kindDesc}</small>${equipDetails}${statsBonus}${descInfo}<small class="muted">Possédé : ${owned} · Revente : ${i.sell} or</small><button class="mini-button" data-buy="${i.id}" ${save.run.gold < i.price ? "disabled" : ""}>Acheter</button></article>`;
 }
 
 export function inventoryMarkup() {
@@ -178,15 +184,22 @@ export function inventoryCard(i, count) {
   if (!i) return "";
   const equipped = Object.values(save.run.equipment).includes(i.id);
   const req = Object.entries(i.req || {}).filter(([k, v]) => totals()[k] < v).map(([k, v]) => `${statName(k)} ${v}`);
+  const isEquip = i.kind === "equipment";
+  const slotName = isEquip ? (SLOTS[i.slot] || i.slot) : "";
   const classAction = i.classWeapon && canUseClassItem(i) ? `<button class="mini-button" data-use="${i.id}">Évoluer vers ${CLASSES[i.classWeapon]?.name || "la classe associée"}</button>` : "";
-  return `<article class="item-card"><header><strong>${i.name}</strong><span class="tag">x${count}</span></header><small class="muted">${i.rarity} · ${i.kind} · ${i.sell} or à la vente</small>${i.bonus ? `<p>${fmtBonuses(i.bonus)}</p>` : `<p>${i.description || ""}</p>`}${i.kind === "equipment" ? `<small class="muted">Prérequis : ${req.join(", ") || "aucun"}</small><button class="mini-button" data-equip="${i.id}" ${req.length ? "disabled" : ""}>${equipped ? "Déséquiper" : "Équiper"}</button>${classAction}` : i.kind === "consumable" || i.classUnlock ? `<button class="mini-button" data-use="${i.id}">Utiliser</button>` : ""}<button class="secondary-button" data-sell="${i.id}">Vendre (${i.sell} or)</button></article>`;
+  const kindLabel = isEquip ? `Équipement (${slotName})` : i.kind;
+  const statsBonus = i.bonus ? `<p class="item-stats"><b>${fmtBonuses(i.bonus)}</b></p>` : "";
+  const desc = i.description ? `<p class="muted">${i.description}</p>` : "";
+  const equipDetails = isEquip ? `<small class="muted">Emplacement : ${slotName} · Prérequis : ${req.join(", ") || "aucun"}</small>` : "";
+
+  return `<article class="item-card"><header><strong>${i.name}</strong><span class="tag">x${count}</span></header><small class="muted">${i.rarity} · ${kindLabel} · ${i.sell} or à la vente</small>${statsBonus}${desc}${equipDetails}${isEquip ? `<button class="mini-button" data-equip="${i.id}" ${req.length ? "disabled" : ""}>${equipped ? "Déséquiper" : "Équiper"}</button>${classAction}` : i.kind === "consumable" || i.classUnlock ? `<button class="mini-button" data-use="${i.id}">Utiliser</button>` : ""}<button class="secondary-button" data-sell="${i.id}">Vendre (${i.sell} or)</button></article>`;
 }
 
 export function equipmentMarkup() {
   return `<div class="panel"><h2>Équipement · 9 emplacements</h2><p class="muted">Les prérequis sont exclusivement statistiques. Les bonus sont recalculés immédiatement.</p><div class="item-grid">${Object.entries(SLOTS).map(([slot, name]) => {
     const id = save.run.equipment[slot];
     const i = item(id);
-    return `<article class="item-card"><strong>${name}</strong><p>${i ? `${i.name}<br>${fmtBonuses(i.bonus)}` : "Aucun objet équipé"}</p>${i ? `<button class="mini-button" data-equip="${i.id}">Retirer</button>` : ""}</article>`;
+    return `<article class="item-card"><header><strong>${name}</strong>${i ? '<span class="tag">Équipé</span>' : ""}</header><small class="muted">Emplacement : ${name}</small><p>${i ? `<b>${i.name}</b><br>${fmtBonuses(i.bonus)}` : "Aucun objet équipé"}</p>${i ? `<button class="mini-button" data-equip="${i.id}">Retirer</button>` : ""}</article>`;
   }).join("")}</div></div>`;
 }
 
@@ -208,16 +221,66 @@ export function attackCard(a) {
   return `<article class="attack-card"><strong>${a.name}</strong><small>${a.damage || a.type} · puissance ${a.power} · Précision : ${a.accuracy} · ${a.mana} mana</small><p>${a.desc}</p><button class="mini-button" data-attack="${a.id}" ${save.run.mana < a.mana ? "disabled" : ""}>Utiliser</button></article>`;
 }
 
+export function formatAttackDetails(a) {
+  if (!a) return "";
+  const typeLabels = { physical: "Physique", magic: "Magique", heal: "Soin", buff: "Soutien" };
+  const dmgLabels = { blunt: "Contondant", slash: "Tranchant", pierce: "Perforant", fire: "Feu", ice: "Glace", wind: "Vent", earth: "Terre", magic: "Magique" };
+  const details = [];
+
+  const typeStr = typeLabels[a.type] || a.type;
+  const dmgStr = a.damage ? (dmgLabels[a.damage] || a.damage) : null;
+  if (dmgStr && dmgStr !== typeStr) {
+    details.push(`Type : ${typeStr} (${dmgStr})`);
+  } else {
+    details.push(`Type : ${typeStr}`);
+  }
+
+  if (typeof a.power === "number") {
+    details.push(`Puissance : ${a.power}`);
+  }
+
+  if (typeof a.accuracy === "number") {
+    details.push(`Précision : ${a.accuracy}%`);
+  }
+
+  details.push(`Coût : ${a.mana ?? 0} mana`);
+
+  if (a.weapon) {
+    details.push(`Arme : ${WEAPONS[a.weapon] || a.weapon}`);
+  }
+
+  if (a.element) {
+    details.push(`Élément : ${ELEMENTS[a.element] || a.element}`);
+  }
+
+  if (a.classId && CLASSES[a.classId]) {
+    details.push(`Classe : ${CLASSES[a.classId].name}`);
+  }
+
+  if (a.status && a.status.length) {
+    const stNames = a.status.map(s => STATUS[s] || s).join(", ");
+    details.push(`Effets : ${stNames}`);
+  }
+
+  return `<div class="attack-info"><small class="muted">${details.join(" · ")}</small>${a.desc ? `<p class="attack-desc">${esc(a.desc)}</p>` : ""}</div>`;
+}
+
 export function statsMarkup() {
   const r = save.run;
   const tot = totals();
   const eq = equippedBonuses();
-  const slots = r.equippedAttacks.map((id, index) =>
-    `<article class="attack-slot" data-attack-slot="${index}">${id ? `<strong>${ATTACKS.find(a => a.id === id)?.name || id}</strong><button class="mini-button" data-remove-attack-slot="${index}">Retirer</button>` : '<span class="muted">Emplacement vide</span>'}</article>`
-  ).join("");
+  const slots = r.equippedAttacks.map((id, index) => {
+    if (!id) return `<article class="attack-slot" data-attack-slot="${index}"><span class="muted">Emplacement vide</span></article>`;
+    const a = ATTACKS.find(atk => atk.id === id);
+    const detailsHtml = a ? formatAttackDetails(a) : "";
+    return `<article class="attack-slot" data-attack-slot="${index}"><header><strong>${a?.name || id}</strong><button class="mini-button" data-remove-attack-slot="${index}">Retirer</button></header>${detailsHtml}</article>`;
+  }).join("");
   const learned = r.learned.map(id => {
+    const a = ATTACKS.find(atk => atk.id === id);
     const equipped = r.equippedAttacks.includes(id);
-    return `<article class="attack-card" draggable="true" data-drag-attack="${id}"><strong>${ATTACKS.find(a => a.id === id)?.name || id}</strong><small>${equipped ? "Déjà équipée" : "Glisser ou équiper automatiquement"}</small><button class="mini-button" data-set-attack="${id}" ${equipped ? "disabled" : ""}>Équiper</button></article>`;
+    const attackName = a?.name || id;
+    const detailsHtml = a ? formatAttackDetails(a) : "";
+    return `<article class="attack-card" draggable="true" data-drag-attack="${id}"><header><strong>${attackName}</strong><small class="muted">${equipped ? "Déjà équipée" : "Glisser ou équiper automatiquement"}</small></header>${detailsHtml}<button class="mini-button" data-set-attack="${id}" ${equipped ? "disabled" : ""}>Équiper</button></article>`;
   }).join("");
   const detailedStats = [...STATS.map(([id, name]) => [id, name]), ...Object.entries(STAT_LABELS)];
   const detailed = detailedStats.map(([id, name]) =>
@@ -271,8 +334,11 @@ export function renderGame() {
   Object.entries(save.legacy.heritageDomains).forEach(([id, domain]) => {
     if (domain.lastLevel > 0) domain.permanent = heritageAcquired(id, domain.lastLevel);
   });
-  const abandonBtn = document.querySelector("#abandon-life");
-  if (abandonBtn) abandonBtn.disabled = Boolean(combat);
+  const newLifeBtn = document.querySelector("#new-life") || document.querySelector("#abandon-life");
+  if (newLifeBtn) {
+    newLifeBtn.classList.remove("hidden");
+    newLifeBtn.disabled = Boolean(combat);
+  }
 
   if (combat) {
     document.querySelector("#tabs").innerHTML = TABS.map(([id, name]) =>
