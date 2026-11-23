@@ -8,7 +8,7 @@ export default defineConfig({
     trace: "on-first-retry"
   },
   webServer: {
-    command: "python -m http.server 8770",
+    command: "python3 -m http.server 8770",
     url: "http://127.0.0.1:8770/index.html",
     reuseExistingServer: true
   }

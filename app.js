@@ -686,8 +686,8 @@ function startCombat(zoneId, force = false) {
   const r = runState(), s = totals();
   if (!r.discoveredZones.includes(z.id)) { r.discoveredZones.push(z.id); save.legacy.discoveries = [...new Set([...(save.legacy.discoveries || []), z.id])]; refreshShop(false); }
   const chance = Math.max(.05, Math.min(.65, .18 + z.difficulty * .045 - s.agility * .012));
-  r.explorations++;
   if (!force && Math.random() >= chance) {
+    r.explorations++;
     const reward = Math.random() < .5 ? z.reward[0] : null;
     if (reward) { addItem(reward); r.itemsFound++; if (item(reward).kind === "material") r.materials++; }
     const result = reward ? `Exploration de ${z.name} sans combat : ${item(reward).name} x1 trouvé.` : `Exploration de ${z.name} sans combat : aucune ressource trouvée.`;

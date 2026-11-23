@@ -433,3 +433,39 @@ test("includes primary stats and class/job levels in character history", async (
   await expect(page.locator("#tab-content")).toContainText("Classe : Guerrier (Apprenti (8 XP))");
   await expect(page.locator("#tab-content")).toContainText("Métier : Fermier (Initié (24 XP))");
 });
+
+test("does not unlock ranger from combats but unlocks it after three explorations", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.stats.strength = 500;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  for (let i = 0; i < 3; i++) {
+    await page.locator('[data-combat-zone]').first().click();
+    await page.locator('[data-attack="punch"]').click();
+  }
+
+  let saved = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")));
+  expect(saved.run.explorations).toBe(0);
+  expect(saved.legacy.unlockedClasses).not.toContain("ranger");
+
+  // Perform 3 explorations from Actions -> Exploration
+  await page.getByRole("button", { name: "Actions" }).click();
+  await page.locator('[data-action-tab="exploration"]').click();
+  for (let i = 0; i < 3; i++) {
+    await page.locator('[data-explore-zone]').first().click();
+  }
+
+  saved = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")));
+  expect(saved.run.explorations).toBe(3);
+  expect(saved.legacy.unlockedClasses).toContain("ranger");
+
+  await page.getByRole("button", { name: "Classes / métiers" }).click();
+  await expect(page.locator('[data-select-class="ranger"]')).toBeVisible();
+});
+
