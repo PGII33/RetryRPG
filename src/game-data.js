@@ -77,6 +77,7 @@ export const ITEMS = [
   { id: "wisdom-ring", name: "Anneau de sagesse", kind: "equipment", rarity: "Rare", slot: "accessory1", price: 115, sell: 60, bonus: { knowledge: 2, maxMana: 12, magicPower: 3 }, req: { knowledge: 6 } },
   { id: "primal-heart", name: "Cœur primordial", kind: "special", rarity: "Mythique", price: 0, sell: 250, classUnlock: "primordial", classWeapon: "primordial", bonus: { magic: 3, fireRes: 8, iceRes: 8, windRes: 8, earthRes: 8 }, req: {} },
   { id: "health-potion", name: "Potion de soin", kind: "consumable", rarity: "Commun", price: 28, sell: 10, effect: { hp: 25 }, description: "Restaure 25 PV.", stock: 3 },
+  { id: "bread", name: "Pain", kind: "consumable", rarity: "Commun", price: 16, sell: 10, effect: { hp: 20 }, description: "Restaure 20 PV.", stock: 2 },
   { id: "mana-potion", name: "Potion de mana", kind: "consumable", rarity: "Inhabituel", price: 46, sell: 17, effect: { mana: 18 }, description: "Restaure 18 mana.", stock: 2 },
   { id: "tonic-constitution", name: "Tonique de constitution", kind: "consumable", rarity: "Rare", price: 145, sell: 55, effect: { stat: "constitution", amount: 1 }, description: "Augmente durablement la Constitution.", stock: 1 },
   { id: "old-gem", name: "Gemme ancienne", kind: "valuable", rarity: "Rare", price: 70, sell: 42, description: "Objet de valeur trouvé en exploration." },

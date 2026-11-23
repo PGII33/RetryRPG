@@ -1,7 +1,9 @@
 import {
-  CLASSES, ELEMENTS, WEAPONS, ITEMS
+  CLASSES, JOBS, ELEMENTS, WEAPONS, ITEMS
 } from "./game-data.js";
 import { save, qty } from "./state.js";
+import { totals, estimatedWork } from "./formulas.js";
+import { masteryText } from "./progression.js";
 
 export const CLASS_WEAPON_TRAINING = {
   warrior: ["sword", "axe", "hammer"],
@@ -131,4 +133,131 @@ export function availableTraining() {
     }
     return true;
   });
+}
+
+export function gamblerChanceAdjective(chance) {
+  if (chance < 0.15) return "Infime";
+  if (chance < 0.30) return "Faible";
+  if (chance < 0.45) return "Moyenne";
+  if (chance < 0.60) return "Favorable";
+  if (chance < 0.75) return "Bonne";
+  if (chance < 0.90) return "Très bonne";
+  return "Excellente";
+}
+
+export function merchantTradeItems() {
+  const r = save.run;
+  if (!r) return [];
+  const luck = totals().luck || 0;
+  let budget = Math.floor(estimatedWork() + luck);
+  const eligibleItems = ITEMS.filter(i => i.price > 0 && i.kind !== "special");
+  const gained = [];
+
+  while (budget > 0) {
+    const affordable = eligibleItems.filter(i => i.price <= budget);
+    if (!affordable.length) break;
+
+    const maxPrice = Math.max(...affordable.map(i => i.price));
+    const topCandidates = affordable.filter(i => i.price >= maxPrice * 0.65);
+    const chosen = topCandidates[Math.floor(Math.random() * topCandidates.length)];
+
+    gained.push(chosen);
+    budget -= chosen.price;
+  }
+
+  return gained;
+}
+
+export function availableWorkActivities() {
+  const r = save.run;
+  if (!r) return [];
+  const jobId = r.jobId || "none";
+  const job = JOBS[jobId];
+  if (!job) return [];
+
+  if (["scholar", "blacksmith", "alchemist"].includes(jobId)) {
+    return [];
+  }
+
+  const list = [];
+  const workGold = estimatedWork();
+  const masteryInfo = masteryText({ xp: r.jobXP });
+
+  // Option commune : Gagner de l'or
+  const goldTitle = jobId === "farmer" ? "Gagner de l'or" : jobId === "gambler" ? "Petites combines" : `Travail de ${job.name}`;
+  const goldDesc = jobId === "farmer"
+    ? "Travailler la terre pour récolter et vendre les produits agricoles."
+    : jobId === "gambler"
+    ? "Petits travaux et jeux de rue sans risque pour un gain modeste garanti."
+    : `Rendement estimé : ${workGold} or.`;
+
+  list.push({
+    name: goldTitle,
+    description: goldDesc,
+    action: "work",
+    extra: `${workGold} or · maîtrise ${masteryInfo}`
+  });
+
+  // Fermier : Produire du pain
+  if (jobId === "farmer") {
+    list.push({
+      name: "Produire du pain",
+      description: "Cuire du pain nourrissant qui régénère la vie et se vend pour 10 po.",
+      action: "work:bread",
+      extra: "Pain x1 · se vend 10 po · régénère 20 PV"
+    });
+  }
+
+  // Marchand : Obtenir des marchandises
+  if (jobId === "merchant") {
+    const luck = totals().luck || 0;
+    const maxVal = Math.floor(workGold + luck);
+    list.push({
+      name: "Négocier des marchandises",
+      description: `Obtenir un ou plusieurs objets aléatoires d'une valeur d'achat maximale de ${maxVal} po (travail + chance), en privilégiant les objets de valeur.`,
+      action: "work:merchant:items",
+      extra: `Valeur d'achat max : ${maxVal} po`
+    });
+  }
+
+  // Parieur : Différentes options de paris
+  if (jobId === "gambler") {
+    const luck = totals().luck || 0;
+    const gold = r.gold || 0;
+
+    const prudentBet = Math.max(1, Math.floor(gold * 0.25));
+    const prudentChance = Math.min(0.95, Math.max(0.05, 0.58 + luck * 0.02));
+    const prudentAdj = gamblerChanceAdjective(prudentChance);
+    list.push({
+      name: "Pari prudent",
+      description: `Miser 25% de votre or actuel (${prudentBet} po) pour tenter un gain mesuré.`,
+      action: "work:gambler:prudent",
+      extra: gold > 0 ? `Mise : ${prudentBet} po · Chance : ${prudentAdj}` : "Mise : 0 po · Or insuffisant",
+      disabled: gold <= 0
+    });
+
+    const boldBet = Math.max(1, Math.floor(gold * 0.50));
+    const boldChance = Math.min(0.90, Math.max(0.05, 0.38 + luck * 0.02));
+    const boldAdj = gamblerChanceAdjective(boldChance);
+    list.push({
+      name: "Pari audacieux",
+      description: `Miser 50% de votre or actuel (${boldBet} po) pour tenter un gain substantiel.`,
+      action: "work:gambler:bold",
+      extra: gold > 0 ? `Mise : ${boldBet} po · Chance : ${boldAdj}` : "Mise : 0 po · Or insuffisant",
+      disabled: gold <= 0
+    });
+
+    const allInBet = gold;
+    const allInChance = Math.min(0.80, Math.max(0.05, 0.18 + luck * 0.02));
+    const allInAdj = gamblerChanceAdjective(allInChance);
+    list.push({
+      name: "Tout ou rien",
+      description: `Miser l'intégralité de votre or actuel (${allInBet} po) pour tenter le jackpot.`,
+      action: "work:gambler:allin",
+      extra: gold > 0 ? `Mise : ${allInBet} po · Chance : ${allInAdj}` : "Mise : 0 po · Or insuffisant",
+      disabled: gold <= 0
+    });
+  }
+
+  return list;
 }

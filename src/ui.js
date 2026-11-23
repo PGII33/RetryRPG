@@ -11,7 +11,7 @@ import {
   level, heritageAcquired
 } from "./formulas.js";
 import {
-  availableStudies, availableTraining, canChangeClass, canUseClassItem
+  availableStudies, availableTraining, availableWorkActivities, canChangeClass, canUseClassItem
 } from "./activities.js";
 
 export const TABS = [
@@ -39,7 +39,8 @@ export function renderActionCard(activity, action, extra = "") {
   const accessibleName = hasAccessibleName ? ` aria-label="${activity.name}"` : "";
   const subtitle = extra || fmtBonuses(activity.gains);
   const duration = subtitle.endsWith("1 an") ? "" : " · 1 an";
-  return `<article class="action-card"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${subtitle}${duration}</small><button class="primary-button"${accessibleName} data-action="${action}">Effectuer</button></article>`;
+  const disabled = activity.disabled ? " disabled" : "";
+  return `<article class="action-card ${activity.disabled ? "disabled" : ""}"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${subtitle}${duration}</small><button class="primary-button"${accessibleName} data-action="${action}"${disabled}>Effectuer</button></article>`;
 }
 
 export function optionMarkup(data, available, group, current = "none") {
@@ -127,7 +128,13 @@ export function actionsMarkup() {
   else if (activeActionTab === "training") content = trainingMarkup();
   else if (activeActionTab === "exploration") content = explorationMarkup();
   else if (activeActionTab === "work") {
-    content = `<div class="panel"><h2>Travailler</h2><p class="muted">Les revenus et le rendement progressent avec la maîtrise du métier.</p><div class="action-grid">${renderActionCard({ name: `Travail de ${JOBS[save.run.jobId].name}`, description: `Rendement estimé : ${estimatedWork()} or.`, gains: {} }, "work", `${estimatedWork()} or · maîtrise ${masteryText({ xp: save.run.jobXP })}`)}</div></div>`;
+    const job = JOBS[save.run.jobId];
+    if (["scholar", "blacksmith", "alchemist"].includes(save.run.jobId)) {
+      content = `<div class="panel"><h2>Travailler</h2><p class="muted">Aucune activité de travail n'est disponible pour le métier ${job.name} pour le moment.</p></div>`;
+    } else {
+      const activities = availableWorkActivities();
+      content = `<div class="panel"><h2>Travailler</h2><p class="muted">Les revenus et le rendement progressent avec la maîtrise du métier.</p><div class="action-grid">${activities.map(activity => renderActionCard(activity, activity.action, activity.extra)).join("")}</div></div>`;
+    }
   } else if (activeActionTab === "rest") {
     content = `<div class="panel"><h2>Se reposer</h2><p class="muted">Récupère les PV et le mana et peut guérir une maladie.</p><div class="action-grid">${renderActionCard({ name: "Repos réparateur", description: "Récupération avec une chance de guérison.", gains: {} }, "rest", "PV +18 · mana +12 · 1 an")}</div></div>`;
   }

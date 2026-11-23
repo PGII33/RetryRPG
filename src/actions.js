@@ -9,7 +9,8 @@ import {
   totals, lifeExpectancy, level, masteryText, growthXp, historicalLevel, recordLegacyMasteries, estimatedWork
 } from "./formulas.js";
 import {
-  classLineage, canChangeClass, canUseClassItem, elementalStudyGain, availableStudies, availableTraining, STUDIES, TRAINING
+  classLineage, canChangeClass, canUseClassItem, elementalStudyGain, availableStudies, availableTraining, STUDIES, TRAINING,
+  merchantTradeItems
 } from "./activities.js";
 import { learnAttack, ensureClassAttack } from "./progression.js";
 import { renderGame, renderCreate } from "./ui.js";
@@ -206,6 +207,9 @@ export function doAction(id) {
     return completeAction(found ? `Exploration : ${item(found).name} trouvé.` : "Exploration : rien trouvé.", { agility: 0.2, luck: 0.15 });
   }
   if (id === "work") {
+    if (["scholar", "blacksmith", "alchemist"].includes(r.jobId)) {
+      return notify("Aucune activité de travail disponible pour ce métier pour le moment.");
+    }
     const job = JOBS[r.jobId];
     const earnings = estimatedWork();
     const jobXp = gainJobXp(2);
@@ -216,6 +220,88 @@ export function doAction(id) {
       `Travail de ${job.name} : +${earnings} or${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       job.stat ? { [job.stat]: 0.2 } : {}
     );
+  }
+  if (id === "work:bread") {
+    if (r.jobId !== "farmer") return notify("Cette activité est réservée aux fermiers.");
+    addItem("bread");
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+    return completeAction(
+      `Travail de Fermier : Pain produit et ajouté à l'inventaire${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      { constitution: 0.2 }
+    );
+  }
+  if (id === "work:merchant:items") {
+    if (r.jobId !== "merchant") return notify("Cette activité est réservée aux marchands.");
+    const items = merchantTradeItems();
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+    if (items.length) {
+      items.forEach(it => {
+        addItem(it.id);
+        r.itemsFound++;
+        if (it.kind === "material") r.materials++;
+      });
+      const names = items.map(it => it.name).join(", ");
+      const totalVal = items.reduce((sum, it) => sum + it.price, 0);
+      return completeAction(
+        `Commerce de Marchand : ${names} obtenu(s) (valeur d'achat : ${totalVal} po)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+        { luck: 0.2 }
+      );
+    } else {
+      return completeAction(
+        `Commerce de Marchand : aucune marchandise abordable trouvée${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+        { luck: 0.2 }
+      );
+    }
+  }
+  if (id.startsWith("work:gambler:")) {
+    if (r.jobId !== "gambler") return notify("Cette activité est réservée aux parieurs.");
+    if (r.gold <= 0) return notify("Vous n'avez pas d'or à miser.");
+    const betType = id.slice(13);
+    let betRatio = 0.25;
+    let multiplier = 1.6;
+    let baseChance = 0.58;
+    let label = "Pari prudent";
+
+    if (betType === "bold") {
+      betRatio = 0.5;
+      multiplier = 2.5;
+      baseChance = 0.38;
+      label = "Pari audacieux";
+    } else if (betType === "allin") {
+      betRatio = 1.0;
+      multiplier = 4.0;
+      baseChance = 0.18;
+      label = "Tout ou rien";
+    }
+
+    const bet = betRatio === 1.0 ? r.gold : Math.max(1, Math.floor(r.gold * betRatio));
+    if (bet <= 0 || r.gold < bet) return notify("Vous n'avez pas assez d'or pour miser.");
+
+    const luck = totals().luck || 0;
+    const maxCap = betType === "allin" ? 0.80 : betType === "bold" ? 0.90 : 0.95;
+    const chance = Math.min(maxCap, Math.max(0.05, baseChance + luck * 0.02));
+    const won = Math.random() < chance;
+
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+
+    if (won) {
+      const netGain = Math.round(bet * (multiplier - 1));
+      r.gold += netGain;
+      save.legacy.goldEarned += netGain;
+      return completeAction(
+        `${label} réussi ! Gain : +${netGain} or (${Math.round(bet * multiplier)} po au total)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+        { luck: 0.2 }
+      );
+    } else {
+      r.gold -= bet;
+      return completeAction(
+        `${label} perdu... Vous perdez ${bet} or${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+        { luck: 0.2 }
+      );
+    }
   }
   if (id === "rest") return rest();
 }
