@@ -453,7 +453,6 @@ function gainMastery(kind, id, amount = 1) {
   if (level(d.xp) > beforeLevel) log(`Niveau de compétence atteint : ${label} · ${masteryText(d)}.`);
   return amount;
 }
-function gainElement(id, amount) { gainMastery("elementMastery", id, amount); }
 function studyElement(id) { advanceYear(); if (!save.run) return; gainMastery("elementMastery", id, 3); unlockChecks(); log(`Étude ciblée du ${ELEMENTS[id]} : affinité travaillée activement.`); persist(); renderGame(); }
 function enemyFor(zone) { const hp = 42 + zone.difficulty * 18; return { name: zone.enemy[Math.floor(Math.random() * zone.enemy.length)], hp, maxHp: hp, defense: 4 + zone.difficulty * 2, speed: 8 + zone.difficulty, res: { slash: zone.difficulty * 2, pierce: zone.difficulty, blunt: Math.max(0, zone.difficulty - 2), fire: zone.difficulty % 3 === 0 ? 28 : 5, ice: zone.difficulty % 4 === 0 ? 25 : 5, wind: 5, earth: zone.difficulty % 2 ? 18 : 4, magic: zone.difficulty * 2 }, statuses: [] }; }
 function chooseAttack(id) { if (!combat || combat.finished) return; const a = ATTACKS.find(x => x.id === id); resolveRound(a); }

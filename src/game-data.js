@@ -124,10 +124,9 @@ export const ATTACKS = [
   { id: "warrior-strike", name: "Frappe du guerrier", type: "physical", damage: "blunt", power: 12, accuracy: 90, mana: 0, classId: "warrior", desc: "Une frappe fondée sur la force du Guerrier." },
   { id: "knight-slash", name: "Coup d'épée", type: "physical", damage: "slash", power: 15, accuracy: 94, mana: 0, weapon: "sword", classId: "knight", desc: "Le coup emblématique du Chevalier." },
   { id: "lancer-thrust", name: "Pointe de lance", type: "physical", damage: "pierce", power: 15, accuracy: 96, mana: 0, weapon: "spear", classId: "lancer", desc: "Une attaque précise du Lancier." },
-  { id: "archer-shot", name: "Tir de précision", type: "physical", damage: "pierce", power: 14, accuracy: 98, mana: 0, weapon: "bow", classId: "archer", desc: "Un tir maîtrisé de l'Archer." },
+  { id: "archer-shot", name: "Tir de précision", type: "physical", damage: "pierce", power: 15, accuracy: 98, mana: 0, weapon: "bow", classId: "archer", desc: "Un tir maîtrisé de l'Archer." },
   { id: "rogue-strike", name: "Frappe sournoise", type: "physical", damage: "pierce", power: 13, accuracy: 96, mana: 0, weapon: "dagger", classId: "rogue", desc: "Une attaque rapide du Voleur." },
   { id: "ranger-shot", name: "Flèche de piste", type: "physical", damage: "pierce", power: 13, accuracy: 96, mana: 0, weapon: "bow", classId: "ranger", desc: "Un tir précis du Rôdeur." },
-  { id: "alchemist-burst", name: "Décharge alchimique", type: "magic", damage: "magic", power: 14, accuracy: 92, mana: 6, classId: "alchemist", desc: "Une réaction offensive de l'Alchimiste." },
   { id: "fire-sphere", name: "Sphère ardente", type: "magic", damage: "fire", element: "fire", power: 19, accuracy: 90, mana: 9, classId: "fireMage", desc: "Une sphère de flammes du Mage de feu." },
   { id: "ice-spear", name: "Lance de glace", type: "magic", damage: "ice", element: "ice", power: 18, accuracy: 93, mana: 9, classId: "iceMage", desc: "Un projectile glacé du Mage de glace." },
   { id: "wind-cyclone", name: "Cyclone tranchant", type: "magic", damage: "wind", element: "wind", power: 18, accuracy: 96, mana: 8, classId: "windMage", desc: "Un courant violent du Mage de vent." },
@@ -136,7 +135,7 @@ export const ATTACKS = [
   { id: "lucky-punch", name: "Lucky Punch", type: "physical", damage: "blunt", power: 5, accuracy: 85, mana: 0, classId: "luckyman", desc: "Un coup imprévisible dont la puissance dépend de la chance (TODO: dépendre de la chance)."},
   { id: "hammerer-smash", name: "Impact dévastateur", type: "physical", damage: "blunt", power: 21, accuracy: 84, mana: 0, weapon: "hammer", classId: "hammerer", desc: "Un coup de marteau écrasant qui libère toute la puissance du Marteleur." },
   { id: "reaver-cleave", name: "Entaille sauvage", type: "physical", damage: "slash", power: 19, accuracy: 91, mana: 0, weapon: "axe", classId: "reaver", desc: "Un puissant coup de hache capable de fendre les défenses adverses." },
-  { id: "evoker-overload", name: "Surcharge arcanique", type: "magic", damage: "magic", power: 22, accuracy: 93, mana: 11, weapon: "catalyst", classId: "evoker", desc: "Le catalyseur concentre le mana pour libérer une décharge arcanique dévastatrice." }
+  { id: "evoker-overload", name: "Surcharge arcanique", type: "magic", damage: "magic", power: 20, accuracy: 93, mana: 11, weapon: "catalyst", classId: "evoker", desc: "Le catalyseur concentre le mana pour libérer une décharge arcanique dévastatrice." }
 ];
 export const ZONES = [
   { id: "forest", name: "Forêt ancienne", difficulty: 1, description: "Loups et gobelins entre les racines.", enemy: ["Loup ancien", "Gobelin rôdeur"], reward: ["ore", "health-potion"] },
