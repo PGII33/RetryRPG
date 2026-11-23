@@ -21,7 +21,8 @@ export const MASTERY_DOMAINS = {
   blacksmith: { label: "Forgeron", source: "Métiers", passive: { workGold: 1, equipmentPower: 1 } },
   alchemist: { label: "Alchimiste", source: "Métiers", passive: { workGold: 1, lifeRegen: 1, magicPower: .5 } },
   gambler : { label: "Parieur", source: "Métiers", passive: { workGold: 1, luck: 1.5 } },
-  concentration: { label: "Concentration du mana", source: "Techniques", passive: { manaRegen: .8, manaEfficiency: 1.5 } }
+  concentration: { label: "Concentration du mana", source: "Techniques", passive: { manaRegen: .8, manaEfficiency: 1.5 } },
+  manaExpansion: { label: "Expansion de mana", source: "Techniques", passive: { maxMana: 10 } }
 };
 export const STAT_LABELS = {
   accuracy: "Précision", evasion: "Esquive", crit: "Coup critique", critDamage: "Dégâts critiques",
@@ -77,8 +78,10 @@ export const ITEMS = [
   { id: "wisdom-ring", name: "Anneau de sagesse", kind: "equipment", rarity: "Rare", slot: "accessory1", price: 115, sell: 60, bonus: { knowledge: 2, maxMana: 12, magicPower: 3 }, req: { knowledge: 6 } },
   { id: "primal-heart", name: "Cœur primordial", kind: "special", rarity: "Mythique", price: 0, sell: 250, classUnlock: "primordial", classWeapon: "primordial", bonus: { magic: 3, fireRes: 8, iceRes: 8, windRes: 8, earthRes: 8 }, req: {} },
   { id: "health-potion", name: "Potion de soin", kind: "consumable", rarity: "Commun", price: 28, sell: 10, effect: { hp: 25 }, description: "Restaure 25 PV.", stock: 3 },
+  { id: "greater-health-potion", name: "Potion de soin avancée", kind: "consumable", rarity: "Inhabituel", price: 50, sell: 25, effect: { hp: 60 }, description: "Restaure 60 PV." },
   { id: "bread", name: "Pain", kind: "consumable", rarity: "Commun", price: 16, sell: 10, effect: { hp: 20 }, description: "Restaure 20 PV.", stock: 2 },
   { id: "mana-potion", name: "Potion de mana", kind: "consumable", rarity: "Inhabituel", price: 46, sell: 17, effect: { mana: 18 }, description: "Restaure 18 mana.", stock: 2 },
+  { id: "greater-mana-potion", name: "Potion de mana avancée", kind: "consumable", rarity: "Rare", price: 75, sell: 35, effect: { mana: 40 }, description: "Restaure 40 mana." },
   { id: "tonic-constitution", name: "Tonique de constitution", kind: "consumable", rarity: "Rare", price: 145, sell: 55, effect: { stat: "constitution", amount: 1 }, description: "Augmente durablement la Constitution.", stock: 1 },
   { id: "old-gem", name: "Gemme ancienne", kind: "valuable", rarity: "Rare", price: 70, sell: 42, description: "Objet de valeur trouvé en exploration." },
   { id: "ore", name: "Minerai de fer", kind: "material", rarity: "Commun", price: 16, sell: 9, description: "Matériau utile au forgeron." },

@@ -128,13 +128,8 @@ export function actionsMarkup() {
   else if (activeActionTab === "training") content = trainingMarkup();
   else if (activeActionTab === "exploration") content = explorationMarkup();
   else if (activeActionTab === "work") {
-    const job = JOBS[save.run.jobId];
-    if (["scholar", "blacksmith", "alchemist"].includes(save.run.jobId)) {
-      content = `<div class="panel"><h2>Travailler</h2><p class="muted">Aucune activité de travail n'est disponible pour le métier ${job.name} pour le moment.</p></div>`;
-    } else {
-      const activities = availableWorkActivities();
-      content = `<div class="panel"><h2>Travailler</h2><p class="muted">Les revenus et le rendement progressent avec la maîtrise du métier.</p><div class="action-grid">${activities.map(activity => renderActionCard(activity, activity.action, activity.extra)).join("")}</div></div>`;
-    }
+    const activities = availableWorkActivities();
+    content = `<div class="panel"><h2>Travailler</h2><p class="muted">Les revenus et les activités progressent avec la maîtrise du métier.</p><div class="action-grid">${activities.map(activity => renderActionCard(activity, activity.action, activity.extra)).join("")}</div></div>`;
   } else if (activeActionTab === "rest") {
     content = `<div class="panel"><h2>Se reposer</h2><p class="muted">Récupère les PV et le mana et peut guérir une maladie.</p><div class="action-grid">${renderActionCard({ name: "Repos réparateur", description: "Récupération avec une chance de guérison.", gains: {} }, "rest", "PV +18 · mana +12 · 1 an")}</div></div>`;
   }
@@ -222,7 +217,10 @@ export function statsMarkup() {
   const detailed = detailedStats.map(([id, name]) =>
     `<div class="stat"><span>${name}</span><strong>${fmtNumber(tot[id] || 0)} (${fmtNumber(eq[id] || 0)})</strong></div>`
   ).join("");
-  return `<div class="two-columns"><div class="panel"><h2>Statistiques de combat</h2><h3>Maîtrises d'armes</h3><table><tbody>${Object.entries(r.weaponMastery).map(([id, d]) => `<tr><td>${WEAPONS[id]}</td><td>${masteryText(d)}</td></tr>`).join("")}</tbody></table></div><div class="panel"><h2>Maîtrises élémentaires</h2><table><tbody>${Object.entries(r.elementMastery).map(([id, d]) => `<tr><td>${ELEMENTS[id]}</td><td>${masteryText(d)}</td></tr>`).join("")}</tbody></table></div><div class="panel"><h2>Statistiques détaillées</h2><div class="stat-grid">${detailed}</div></div><div class="panel"><h2>Emplacements d'attaques</h2><p class="muted">Cliquez sur Équiper pour remplir le premier emplacement libre, ou glissez une attaque pour choisir sa position.</p><div class="attack-slots">${slots}</div><h3>Attaques apprises</h3><div class="attack-grid">${learned}</div></div></div>`;
+  const techRows = Object.entries(r.techniqueMastery || {})
+    .map(([id, d]) => `<tr><td>${MASTERY_DOMAINS[id]?.label || id}</td><td>${masteryText(typeof d === "object" ? d : { xp: d * 5 })}</td></tr>`)
+    .join("");
+  return `<div class="two-columns"><div class="panel"><h2>Statistiques de combat</h2><h3>Maîtrises d'armes</h3><table><tbody>${Object.entries(r.weaponMastery).map(([id, d]) => `<tr><td>${WEAPONS[id]}</td><td>${masteryText(d)}</td></tr>`).join("")}</tbody></table></div><div class="panel"><h2>Maîtrises élémentaires</h2><table><tbody>${Object.entries(r.elementMastery).map(([id, d]) => `<tr><td>${ELEMENTS[id]}</td><td>${masteryText(d)}</td></tr>`).join("")}</tbody></table><h3>Techniques</h3><table><tbody>${techRows}</tbody></table></div><div class="panel"><h2>Statistiques détaillées</h2><div class="stat-grid">${detailed}</div></div><div class="panel"><h2>Emplacements d'attaques</h2><p class="muted">Cliquez sur Équiper pour remplir le premier emplacement libre, ou glissez une attaque pour choisir sa position.</p><div class="attack-slots">${slots}</div><h3>Attaques apprises</h3><div class="attack-grid">${learned}</div></div></div>`;
 }
 
 export function masteryRows() {
@@ -232,7 +230,7 @@ export function masteryRows() {
       const inherited = save.legacy.heritageDomains[id];
       if (!inherited || inherited.lastLevel <= 0) return "";
       const effect = fmtPassiveValues(inherited.permanent || {});
-      const growth = (CLASSES[id] || JOBS[id])
+      const growth = (CLASSES[id] || JOBS[id] || WEAPONS[id] || ELEMENTS[id] || id === "concentration" || id === "manaExpansion")
         ? `<br>Bonus de croissance : +${fmtNumber(inherited.lastLevel * 0.5)} XP par gain associé.`
         : "";
       return `<article class="mastery-card"><header><strong>${domain.label}</strong><span class="tag">${domain.source}</span></header><p>Meilleur rang atteint : <b>${MASTERY_LEVELS[inherited.lastLevel]}</b> · par ${esc(inherited.lastCharacter || "Personnage historique")}</p><small class="muted">Effets : ${effect}${growth}</small></article>`;

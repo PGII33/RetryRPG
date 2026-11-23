@@ -58,7 +58,12 @@ export function heritageProgress(id, run) {
   }
   if (id === "class") return { xp: 0, level: 0 };
   if (id === "concentration") {
-    const xp = (run.techniqueMastery?.concentration || 0) * 8;
+    const conc = run.techniqueMastery?.concentration;
+    const xp = typeof conc === "object" ? (conc?.xp || 0) : (conc || 0) * 5;
+    return { xp, level: level(xp) };
+  }
+  if (id === "manaExpansion") {
+    const xp = run.techniqueMastery?.manaExpansion?.xp || 0;
     return { xp, level: level(xp) };
   }
   const jobXp = run.jobId === id ? run.jobXP || 0 : 0;

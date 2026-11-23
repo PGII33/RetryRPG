@@ -175,10 +175,6 @@ export function availableWorkActivities() {
   const job = JOBS[jobId];
   if (!job) return [];
 
-  if (["scholar", "blacksmith", "alchemist"].includes(jobId)) {
-    return [];
-  }
-
   const list = [];
   const workGold = estimatedWork();
   const masteryInfo = masteryText({ xp: r.jobXP });
@@ -202,7 +198,7 @@ export function availableWorkActivities() {
   if (jobId === "farmer") {
     list.push({
       name: "Produire du pain",
-      description: "Cuire du pain nourrissant qui régénère la vie et se vend pour 10 po.",
+      description: "Cuire du pain. Régénère la vie et peut se vendre.",
       action: "work:bread",
       extra: "Pain x1 · se vend 10 po · régénère 20 PV"
     });
@@ -256,6 +252,79 @@ export function availableWorkActivities() {
       action: "work:gambler:allin",
       extra: gold > 0 ? `Mise : ${allInBet} po · Chance : ${allInAdj}` : "Mise : 0 po · Or insuffisant",
       disabled: gold <= 0
+    });
+  }
+
+  // Érudit : Lire pour améliorer ses stats et augmenter le mana maximum
+  if (jobId === "scholar") {
+    const gold = r.gold || 0;
+    const manaExpXp = r.techniqueMastery?.manaExpansion?.xp || 0;
+    list.push({
+      name: "Lecture d'archives arcaniques",
+      description: "Étudier des manuscrits rares. Améliore le Savoir, restaure le mana et développe la technique d'Expansion de mana (augmente le mana maximum).",
+      action: "work:scholar:read",
+      extra: gold >= 20 ? `Coût : 20 or · Savoir +0.25 · Mana +0.2 · ${masteryText({ xp: manaExpXp })}` : "Coût : 20 or · Or insuffisant",
+      disabled: gold < 20
+    });
+  }
+
+  // Forgeron : Améliorer son équipement (or ou matériaux)
+  if (jobId === "blacksmith") {
+    const gold = r.gold || 0;
+    const hasMat = qty("ore") > 0 || qty("ember") > 0 || (r.materials || 0) > 0;
+    const ref = r.equipmentRefinement || 0;
+
+    list.push({
+      name: "Renforcer l'équipement (or)",
+      description: "Forger des renforts durables pour son équipement (+20% aux bonus d'équipement, +2 défense et +2 dégâts par rang).",
+      action: "work:blacksmith:upgrade:gold",
+      extra: gold >= 30 ? `Coût : 30 or · Rang actuel : +${ref}` : "Coût : 30 or · Or insuffisant",
+      disabled: gold < 30
+    });
+
+    list.push({
+      name: "Renforcer l'équipement (matériaux)",
+      description: "Utiliser 1 minerai ou braise pour améliorer sa forge sans dépenser d'or.",
+      action: "work:blacksmith:upgrade:materials",
+      extra: hasMat ? `Coût : 1 matériau · Rang actuel : +${ref}` : "Coût : 1 matériau · Aucun matériau",
+      disabled: !hasMat
+    });
+  }
+
+  // Alchimiste : Guérir une maladie et préparer des potions avancées
+  if (jobId === "alchemist") {
+    const gold = r.gold || 0;
+    const hasDisease = Boolean(r.diseases?.length);
+    const hasMat = qty("ore") > 0 || qty("ember") > 0 || (r.materials || 0) > 0;
+
+    list.push({
+      name: "Remède contre la maladie (or)",
+      description: "Préparer un remède alchimique qui soigne à coup sûr une maladie en 1 tour.",
+      action: "work:alchemist:cure:gold",
+      extra: hasDisease ? (gold >= 25 ? "Coût : 25 or · Guérison garantie à 100%" : "Coût : 25 or · Or insuffisant") : "Aucune maladie active",
+      disabled: !hasDisease || gold < 25
+    });
+
+    list.push({
+      name: "Remède contre la maladie (ingrédients)",
+      description: "Utiliser 1 ingrédient (minerai ou braise) pour soigner à coup sûr une maladie sans dépenser d'or.",
+      action: "work:alchemist:cure:ingredients",
+      extra: hasDisease ? (hasMat ? "Coût : 1 ingrédient · Guérison garantie à 100%" : "Coût : 1 ingrédient · Ingrédient manquant") : "Aucune maladie active",
+      disabled: !hasDisease || !hasMat
+    });
+
+    list.push({
+      name: "Préparer un élixir de soin avancé",
+      description: "Préparer gratuitement une Potion de soin avancée (restaure 60 PV, se vend pour 25 po).",
+      action: "work:alchemist:potion:hp",
+      extra: "Gratuit · Potion de soin avancée (+60 PV)"
+    });
+
+    list.push({
+      name: "Préparer un élixir de mana avancé",
+      description: "Préparer gratuitement une Potion de mana avancée (restaure 40 mana, se vend pour 35 po).",
+      action: "work:alchemist:potion:mana",
+      extra: "Gratuit · Potion de mana avancée (+40 mana)"
     });
   }
 

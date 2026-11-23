@@ -1,5 +1,5 @@
 import {
-  CLASSES, JOBS, STATS, WEAPONS, ELEMENTS, ITEMS, ATTACKS, RANDOM_NAMES, ZONES
+  CLASSES, JOBS, STATS, WEAPONS, ELEMENTS, ITEMS, ATTACKS, RANDOM_NAMES, ZONES, MASTERY_DOMAINS
 } from "./game-data.js";
 import { notify, statName, fmtBonuses, item } from "./game-helpers.js?v=3";
 import {
@@ -124,9 +124,21 @@ export function gainJobXp(base) {
 }
 
 export function gainMastery(kind, id, amount = 1) {
-  const d = save.run[kind][id];
+  save.run[kind] ||= {};
+  let d = save.run[kind][id];
+  if (typeof d === "number") {
+    save.run[kind][id] = { xp: d * 5 };
+    d = save.run[kind][id];
+  } else if (!d) {
+    save.run[kind][id] = { xp: 0 };
+    d = save.run[kind][id];
+  }
   const beforeLevel = level(d.xp);
-  d.xp += amount;
+  const histLevel = historicalLevel(id);
+  const masteryBonus = +(Math.max(beforeLevel, histLevel) * 0.5).toFixed(2);
+  const totalAmount = +(amount + masteryBonus).toFixed(2);
+  d.xp = +(d.xp + totalAmount).toFixed(2);
+
   const unlocks = kind === "elementMastery"
     ? { fire: ["fire"], ice: ["ice"], wind: ["wind"], earth: ["earth"] }
     : { sword: ["pierce"], spear: ["shot"], hammer: ["smash"], bow: ["shot"], catalyst: ["wind"], dagger: ["pierce"] };
@@ -135,15 +147,15 @@ export function gainMastery(kind, id, amount = 1) {
     learnAttack(save.run, technique);
     log(`Technique débloquée : ${ATTACKS.find(a => a.id === technique)?.name}.`);
   }
-  const label = kind === "weaponMastery" ? WEAPONS[id] : ELEMENTS[id];
+  const label = kind === "weaponMastery" ? WEAPONS[id] : kind === "elementMastery" ? ELEMENTS[id] : MASTERY_DOMAINS[id]?.label || id;
   if (level(d.xp) > beforeLevel) {
     log(`Niveau de compétence atteint : ${label} · ${masteryText(d)}.`);
   }
-  return amount;
+  return totalAmount;
 }
 
-export function completeAction(text, gains = {}) {
-  advanceYear();
+export function completeAction(text, gains = {}, shouldAdvance = true) {
+  if (shouldAdvance) advanceYear();
   if (!save.run) return;
   const beforeStats = { ...save.run.stats };
   Object.entries(gains).forEach(([k, v]) => gainStat(k, v));
@@ -192,8 +204,12 @@ export function doAction(id) {
     const type = id.slice(6);
     const activity = TRAINING.find(entry => entry.id === type);
     if (!activity || !availableTraining().includes(activity)) return notify("Cet entraînement n'est pas accessible.");
-    const masteryGain = type.startsWith("weapon-") ? gainMastery("weaponMastery", type.slice(7), 2) : 0;
-    if (type === "concentration") r.techniqueMastery.concentration++;
+    let masteryGain = 0;
+    if (type.startsWith("weapon-")) {
+      masteryGain = gainMastery("weaponMastery", type.slice(7), 2);
+    } else if (type === "concentration") {
+      masteryGain = gainMastery("techniqueMastery", "concentration", 2);
+    }
     const gains = Object.fromEntries(Object.entries(activity.gains).filter(([key]) => key !== "concentration"));
     return completeAction(`Entraînement accompli${masteryGain ? ` : +${masteryGain} XP de compétence.` : "."}`, gains);
   }
@@ -207,9 +223,6 @@ export function doAction(id) {
     return completeAction(found ? `Exploration : ${item(found).name} trouvé.` : "Exploration : rien trouvé.", { agility: 0.2, luck: 0.15 });
   }
   if (id === "work") {
-    if (["scholar", "blacksmith", "alchemist"].includes(r.jobId)) {
-      return notify("Aucune activité de travail disponible pour ce métier pour le moment.");
-    }
     const job = JOBS[r.jobId];
     const earnings = estimatedWork();
     const jobXp = gainJobXp(2);
@@ -302,6 +315,101 @@ export function doAction(id) {
         { luck: 0.2 }
       );
     }
+  }
+  if (id === "work:scholar:read") {
+    if (r.jobId !== "scholar") return notify("Cette activité est réservée aux érudits.");
+    if ((r.gold || 0) < 20) return notify("Vous n'avez pas assez d'or (20 po nécessaires).");
+    r.gold -= 20;
+    r.mana = Math.min(totals().maxMana, r.mana + 15);
+    const mg = gainMastery("techniqueMastery", "manaExpansion", 2);
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+    return completeAction(
+      `Lecture arcanique : -20 or · +${mg} XP en Expansion de mana${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      { knowledge: 0.25, magic: 0.2 }
+    );
+  }
+  if (id === "work:blacksmith:upgrade:gold") {
+    if (r.jobId !== "blacksmith") return notify("Cette activité est réservée aux forgerons.");
+    if ((r.gold || 0) < 30) return notify("Vous n'avez pas assez d'or (30 po nécessaires).");
+    r.gold -= 30;
+    r.equipmentRefinement = (r.equipmentRefinement || 0) + 1;
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+    return completeAction(
+      `Forge (or) : Équipement renforcé au rang +${r.equipmentRefinement} (-30 or)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      { strength: 0.25 }
+    );
+  }
+  if (id === "work:blacksmith:upgrade:materials") {
+    if (r.jobId !== "blacksmith") return notify("Cette activité est réservée aux forgerons.");
+    let usedMat = null;
+    if (qty("ore") > 0) { removeItem("ore"); usedMat = "Minerai de fer"; }
+    else if (qty("ember") > 0) { removeItem("ember"); usedMat = "Braise élémentaire"; }
+    else if ((r.materials || 0) > 0) { r.materials--; usedMat = "Matériau brut"; }
+    else return notify("Aucun matériau disponible dans l'inventaire.");
+
+    r.equipmentRefinement = (r.equipmentRefinement || 0) + 1;
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+    return completeAction(
+      `Forge (matériaux) : Équipement renforcé au rang +${r.equipmentRefinement} (-1 ${usedMat})${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      { strength: 0.25 }
+    );
+  }
+  if (id === "work:alchemist:cure:gold") {
+    if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
+    if (!r.diseases.length) return notify("Vous ne souffrez d'aucune maladie à soigner.");
+    if ((r.gold || 0) < 25) return notify("Vous n'avez pas assez d'or (25 po nécessaires).");
+    r.gold -= 25;
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+    advanceYear();
+    const cured = r.diseases.shift() || { name: "Maladie" };
+    return completeAction(
+      `Remède alchimique (or) : ${cured.name} guérie à coup sûr (-25 or)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      { knowledge: 0.2 },
+      false
+    );
+  }
+  if (id === "work:alchemist:cure:ingredients") {
+    if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
+    if (!r.diseases.length) return notify("Vous ne souffrez d'aucune maladie à soigner.");
+    let usedIng = null;
+    if (qty("ore") > 0) { removeItem("ore"); usedIng = "Minerai de fer"; }
+    else if (qty("ember") > 0) { removeItem("ember"); usedIng = "Braise élémentaire"; }
+    else if ((r.materials || 0) > 0) { r.materials--; usedIng = "Ingrédient"; }
+    else return notify("Aucun ingrédient disponible pour préparer le remède.");
+
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+    advanceYear();
+    const cured = r.diseases.shift() || { name: "Maladie" };
+    return completeAction(
+      `Remède alchimique (ingrédients) : ${cured.name} guérie à coup sûr (-1 ${usedIng})${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      { knowledge: 0.2 },
+      false
+    );
+  }
+  if (id === "work:alchemist:potion:hp") {
+    if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
+    addItem("greater-health-potion");
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+    return completeAction(
+      `Alchimie : Potion de soin avancée préparée gratuitement (+60 PV)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      { knowledge: 0.2 }
+    );
+  }
+  if (id === "work:alchemist:potion:mana") {
+    if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
+    addItem("greater-mana-potion");
+    r.workActions++;
+    const jobXp = gainJobXp(2);
+    return completeAction(
+      `Alchimie : Potion de mana avancée préparée gratuitement (+40 mana)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      { knowledge: 0.2 }
+    );
   }
   if (id === "rest") return rest();
 }

@@ -45,7 +45,8 @@ export function newRun() {
     equipment: {},
     weaponMastery: emptyMastery(Object.keys(WEAPONS)),
     elementMastery: emptyMastery(Object.keys(ELEMENTS)),
-    techniqueMastery: { concentration: 0 },
+    techniqueMastery: { concentration: { xp: 0 }, manaExpansion: { xp: 0 } },
+    equipmentRefinement: 0,
     discoveredZones: [],
     classXP: 0,
     classXPById: {},
@@ -66,7 +67,14 @@ export function normalizeLoadedSave(raw) {
   if (raw.schema !== 3) raw.schema = 3;
   if (raw.run) {
     raw.run.discoveredZones ||= [];
-    raw.run.techniqueMastery ||= { concentration: 0 };
+    raw.run.techniqueMastery ||= {};
+    if (typeof raw.run.techniqueMastery.concentration === "number") {
+      raw.run.techniqueMastery.concentration = { xp: raw.run.techniqueMastery.concentration * 5 };
+    } else if (!raw.run.techniqueMastery.concentration) {
+      raw.run.techniqueMastery.concentration = { xp: 0 };
+    }
+    raw.run.techniqueMastery.manaExpansion ||= { xp: 0 };
+    raw.run.equipmentRefinement ||= 0;
     raw.run.weaponMastery ||= emptyMastery(Object.keys(WEAPONS));
     raw.run.elementMastery ||= emptyMastery(Object.keys(ELEMENTS));
   }
@@ -109,7 +117,14 @@ export function runState() {
   const r = save.run;
   if (!r) return null;
   r.discoveredZones ||= [];
-  r.techniqueMastery ||= { concentration: 0 };
+  r.techniqueMastery ||= {};
+  if (typeof r.techniqueMastery.concentration === "number") {
+    r.techniqueMastery.concentration = { xp: r.techniqueMastery.concentration * 5 };
+  } else if (!r.techniqueMastery.concentration) {
+    r.techniqueMastery.concentration = { xp: 0 };
+  }
+  r.techniqueMastery.manaExpansion ||= { xp: 0 };
+  r.equipmentRefinement ||= 0;
   r.weaponMastery ||= emptyMastery(Object.keys(WEAPONS));
   r.elementMastery ||= emptyMastery(Object.keys(ELEMENTS));
   return r;
@@ -184,7 +199,14 @@ export function ensureSaveShape() {
   r.elementMastery ||= emptyMastery(Object.keys(ELEMENTS));
   Object.keys(WEAPONS).forEach(id => r.weaponMastery[id] ||= { xp: 0 });
   Object.keys(ELEMENTS).forEach(id => r.elementMastery[id] ||= { xp: 0 });
-  r.techniqueMastery ||= { concentration: 0 };
+  r.techniqueMastery ||= {};
+  if (typeof r.techniqueMastery.concentration === "number") {
+    r.techniqueMastery.concentration = { xp: r.techniqueMastery.concentration * 5 };
+  } else if (!r.techniqueMastery.concentration) {
+    r.techniqueMastery.concentration = { xp: 0 };
+  }
+  r.techniqueMastery.manaExpansion ||= { xp: 0 };
+  r.equipmentRefinement ||= 0;
   r.discoveredZones ||= [];
   r.log ||= [];
   r.learned ||= ["punch"];
@@ -222,10 +244,16 @@ export function removeItem(id, amount = 1) {
 export function equippedBonuses() {
   const out = {};
   if (!save.run?.equipment) return out;
+  const refinement = save.run.equipmentRefinement || 0;
   Object.values(save.run.equipment).forEach(id => {
     Object.entries(item(id)?.bonus || {}).forEach(([k, v]) => {
-      out[k] = (out[k] || 0) + v;
+      const val = refinement > 0 ? Math.round(v * (1 + refinement * 0.2) * 10) / 10 : v;
+      out[k] = (out[k] || 0) + val;
     });
   });
+  if (refinement > 0) {
+    out.defense = (out.defense || 0) + refinement * 2;
+    out.damage = (out.damage || 0) + refinement * 2;
+  }
   return out;
 }
