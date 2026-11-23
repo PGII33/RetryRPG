@@ -18,6 +18,7 @@ jobs:
   test:
     name: Browser tests
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,12 +41,14 @@ jobs:
     name: Deploy site
     needs: test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
       pages: write
       id-token: write
+      actions: read
 
     environment:
       name: github-pages
@@ -59,8 +62,9 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
+          name: github-pages
           path: "."
 
       - name: Deploy to GitHub Pages
