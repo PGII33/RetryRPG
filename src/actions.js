@@ -1,0 +1,445 @@
+import {
+  CLASSES, JOBS, STATS, WEAPONS, ELEMENTS, ITEMS, ATTACKS, RANDOM_NAMES, ZONES
+} from "./game-data.js";
+import { notify, statName, fmtBonuses, item } from "./game-helpers.js?v=3";
+import {
+  save, persist, runState, qty, addItem, removeItem, setSaveRun, setCombat, newRun
+} from "./state.js";
+import {
+  totals, lifeExpectancy, level, masteryText, growthXp, historicalLevel, recordLegacyMasteries, estimatedWork
+} from "./formulas.js";
+import {
+  classLineage, canChangeClass, canUseClassItem, elementalStudyGain, availableStudies, availableTraining, STUDIES, TRAINING
+} from "./activities.js";
+import { learnAttack, ensureClassAttack } from "./progression.js";
+import { renderGame, renderCreate } from "./ui.js";
+
+export function log(text) {
+  save.run.log.unshift(`${save.run.age} ans : ${text}`);
+  save.run.log = save.run.log.slice(0, 60);
+}
+
+export function unlockChecks() {
+  const before = [...save.legacy.unlockedClasses, ...save.legacy.unlockedJobs];
+  Object.entries(CLASSES).forEach(([id, c]) => {
+    if (!save.legacy.unlockedClasses.includes(id) && c.unlock({ run: save.run, legacy: save.legacy })) {
+      save.legacy.unlockedClasses.push(id);
+      log(`Connaissance acquise : classe ${c.name} débloquée.`);
+      notify(`${c.name} débloqué !`);
+    }
+  });
+  Object.entries(JOBS).forEach(([id, j]) => {
+    if (!save.legacy.unlockedJobs.includes(id) && j.unlock({ run: save.run, legacy: save.legacy })) {
+      save.legacy.unlockedJobs.push(id);
+      log(`Métier débloqué : ${j.name}.`);
+      notify(`${j.name} débloqué !`);
+    }
+  });
+  if (save.legacy.primalHeart && !save.legacy.unlockedClasses.includes("primordial")) {
+    save.legacy.unlockedClasses.push("primordial");
+  }
+  return before.length !== save.legacy.unlockedClasses.length + save.legacy.unlockedJobs.length;
+}
+
+export function contractDisease() {
+  if (save.run.diseases.length) return;
+  const names = [["Rhume", "Légère", 1], ["Fièvre des marais", "Modérée", 2], ["Peste grise", "Grave", 3]];
+  const d = names[Math.floor(Math.random() * names.length)];
+  save.run.diseases.push({ name: d[0], severity: d[1], progression: d[2] });
+  log(`Maladie contractée : ${d[0]} (${d[1]}).`);
+}
+
+export function progressDisease() {
+  save.run.diseases.forEach(d => {
+    if (Math.random() < 0.35) {
+      d.progression++;
+      if (d.progression >= 4 && d.severity !== "Critique") {
+        d.severity = d.severity === "Légère" ? "Modérée" : d.severity === "Modérée" ? "Grave" : "Critique";
+        d.progression = 0;
+        log(`${d.name} s'aggrave : gravité ${d.severity}.`);
+      }
+      if (d.severity === "Critique" && Math.random() < 0.28) {
+        die(`La maladie ${d.name} devient mortelle.`);
+      }
+    }
+  });
+}
+
+export function advanceYear() {
+  const r = save.run;
+  r.age++;
+  r.actions++;
+  save.legacy.totalActions++;
+  const s = totals();
+  r.hp = Math.min(r.maxHp, r.hp + s.lifeRegen);
+  r.mana = Math.min(s.maxMana, r.mana + s.manaRegen);
+  if (r.age % 5 === 0) refreshShop();
+  if (Math.random() < Math.max(0.03, 0.14 - s.constitution * 0.006)) contractDisease();
+  progressDisease();
+  const maxAge = lifeExpectancy();
+  if (r.age >= maxAge - 3 && Math.random() < 0.08 + (r.age - (maxAge - 3)) * 0.1) {
+    die("Le vieillissement probabiliste vous emporte.");
+  }
+  r.maxStats = { ...r.maxStats };
+  Object.keys(r.stats).forEach(k => r.maxStats[k] = Math.max(r.maxStats[k], r.stats[k]));
+  unlockChecks();
+  persist();
+}
+
+export function gainStat(key, amount = 0.1) {
+  save.run.stats[key] += amount;
+}
+
+export function gainClassXp(base, domainId = null) {
+  if (!save.run || save.run.classId === "none" || base <= 0) return 0;
+  const current = save.run.classId;
+  let currentGain = 0;
+  const domains = domainId ? [domainId] : classLineage(current);
+  domains.forEach(id => {
+    if (!CLASSES[id]) return;
+    const gained = growthXp(base, id);
+    const beforeXp = save.run.classXPById[id] || 0;
+    save.run.classXPById[id] = beforeXp + gained;
+    if (id === current) {
+      save.run.classXP = save.run.classXPById[id];
+      currentGain = gained;
+    }
+    if (level(save.run.classXPById[id]) > level(beforeXp)) {
+      log(`Niveau de classe atteint : ${CLASSES[id].name} · ${masteryText({ xp: save.run.classXPById[id] })}.`);
+    }
+  });
+  return currentGain;
+}
+
+export function gainJobXp(base) {
+  if (!save.run || save.run.jobId === "none" || base <= 0) return 0;
+  const gained = growthXp(base, save.run.jobId);
+  const beforeLevel = level(save.run.jobXP);
+  save.run.jobXP += gained;
+  if (level(save.run.jobXP) > beforeLevel) {
+    log(`Niveau de métier atteint : ${masteryText({ xp: save.run.jobXP })}.`);
+  }
+  return gained;
+}
+
+export function gainMastery(kind, id, amount = 1) {
+  const d = save.run[kind][id];
+  const beforeLevel = level(d.xp);
+  d.xp += amount;
+  const unlocks = kind === "elementMastery"
+    ? { fire: ["fire"], ice: ["ice"], wind: ["wind"], earth: ["earth"] }
+    : { sword: ["pierce"], spear: ["shot"], hammer: ["smash"], bow: ["shot"], catalyst: ["wind"], dagger: ["pierce"] };
+  const technique = unlocks[id]?.[0];
+  if (technique && d.xp >= 8 && !save.run.learned.includes(technique)) {
+    learnAttack(save.run, technique);
+    log(`Technique débloquée : ${ATTACKS.find(a => a.id === technique)?.name}.`);
+  }
+  const label = kind === "weaponMastery" ? WEAPONS[id] : ELEMENTS[id];
+  if (level(d.xp) > beforeLevel) {
+    log(`Niveau de compétence atteint : ${label} · ${masteryText(d)}.`);
+  }
+  return amount;
+}
+
+export function completeAction(text, gains = {}) {
+  advanceYear();
+  if (!save.run) return;
+  const beforeStats = { ...save.run.stats };
+  Object.entries(gains).forEach(([k, v]) => gainStat(k, v));
+  const classGain = classLineage(save.run.classId)
+    .map(id => CLASSES[id].stat && gains[CLASSES[id].stat] ? gainClassXp(gains[CLASSES[id].stat], id) : 0)
+    .reduce((total, value) => total + value, 0);
+  const details = Object.entries(gains)
+    .filter(([key]) => STATS.some(([id]) => id === key) && save.run.stats[key] !== beforeStats[key])
+    .map(([key]) => `+${(save.run.stats[key] - beforeStats[key]).toFixed(2)} ${statName(key)}`);
+  if (classGain) details.push(`+${classGain} XP de classe`);
+  unlockChecks();
+  log(`${text}${details.length ? ` · ${details.join(" · ")}` : ""}`);
+  persist();
+  renderGame();
+}
+
+export function rest() {
+  advanceYear();
+  if (!save.run) return;
+  const r = save.run;
+  r.hp = Math.min(r.maxHp, r.hp + 18);
+  r.mana = Math.min(totals().maxMana, r.mana + 12);
+  if (r.diseases.length && Math.random() < 0.45) {
+    const healed = r.diseases.shift();
+    log(`Repos efficace : ${healed.name} est guérie.`);
+  } else {
+    log("Repos : récupération partielle.");
+  }
+  persist();
+  renderGame();
+}
+
+export function doAction(id) {
+  const r = save.run;
+  if (id.startsWith("study:")) {
+    const type = id.slice(6);
+    const study = STUDIES.find(activity => activity.id === type);
+    if (!study || !study.available(r)) return notify("Cette étude n'est pas encore accessible.");
+    const masteryGain = type.startsWith("element-")
+      ? gainMastery("elementMastery", type.slice(8), elementalStudyGain(r.classId, type.slice(8)))
+      : 0;
+    r.studyActions++;
+    return completeAction(`Étude accomplie${masteryGain ? ` : +${masteryGain} XP de compétence.` : "."}`, study.gains);
+  }
+  if (id.startsWith("train:")) {
+    const type = id.slice(6);
+    const activity = TRAINING.find(entry => entry.id === type);
+    if (!activity || !availableTraining().includes(activity)) return notify("Cet entraînement n'est pas accessible.");
+    const masteryGain = type.startsWith("weapon-") ? gainMastery("weaponMastery", type.slice(7), 2) : 0;
+    if (type === "concentration") r.techniqueMastery.concentration++;
+    const gains = Object.fromEntries(Object.entries(activity.gains).filter(([key]) => key !== "concentration"));
+    return completeAction(`Entraînement accompli${masteryGain ? ` : +${masteryGain} XP de compétence.` : "."}`, gains);
+  }
+  if (id === "explore") {
+    r.explorations++;
+    const found = Math.random() < 0.7 ? ["ore", "old-gem", "health-potion"][Math.floor(Math.random() * 3)] : null;
+    if (found) {
+      addItem(found);
+      r.itemsFound++;
+    }
+    return completeAction(found ? `Exploration : ${item(found).name} trouvé.` : "Exploration : rien trouvé.", { agility: 0.2, luck: 0.15 });
+  }
+  if (id === "work") {
+    const job = JOBS[r.jobId];
+    const earnings = estimatedWork();
+    const jobXp = gainJobXp(2);
+    r.gold += earnings;
+    save.legacy.goldEarned += earnings;
+    r.workActions++;
+    return completeAction(
+      `Travail de ${job.name} : +${earnings} or${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      job.stat ? { [job.stat]: 0.2 } : {}
+    );
+  }
+  if (id === "rest") return rest();
+}
+
+export function exploreZone(zoneId) {
+  const z = ZONES.find(x => x.id === zoneId);
+  if (!z) return;
+  const r = runState();
+  const s = totals();
+  const locked = z.req && (z.req.stat ? s[z.req.stat] < z.req.value : level(r.elementMastery[z.req.element]?.xp || 0) < z.req.value);
+  if (locked) return notify("Cette zone n'est pas encore accessible.");
+  if (!r.discoveredZones.includes(z.id)) {
+    r.discoveredZones.push(z.id);
+    save.legacy.discoveries = [...new Set([...(save.legacy.discoveries || []), z.id])];
+    refreshShop(false);
+  }
+  r.explorations++;
+  const reward = Math.random() < 0.7 ? z.reward[Math.floor(Math.random() * z.reward.length)] : null;
+  if (reward) {
+    addItem(reward);
+    r.itemsFound++;
+    if (item(reward).kind === "material") r.materials++;
+  }
+  completeAction(
+    reward ? `Exploration de ${z.name} : ${item(reward).name} trouvé.` : `Exploration de ${z.name} : aucune ressource trouvée.`,
+    { agility: 0.2, luck: 0.15 }
+  );
+}
+
+export function buy(id) {
+  const i = item(id);
+  if (!i || save.run.gold < i.price) return;
+  save.run.gold -= i.price;
+  addItem(id);
+  log(`Achat : ${i.name} x1.`);
+  persist();
+  renderGame();
+}
+
+export function sell(id) {
+  const i = item(id);
+  if (!i || !qty(id)) return;
+  removeItem(id);
+  save.run.gold += i.sell * (save.run.jobId === "merchant" ? 1.1 : 1);
+  log(`Vente : ${i.name} x1.`);
+  persist();
+  renderGame();
+}
+
+export function useItem(id) {
+  const i = item(id);
+  if (!i || !qty(id)) return;
+  const r = save.run;
+  if (i.classWeapon) {
+    const target = CLASSES[i.classWeapon];
+    if (!canUseClassItem(i)) {
+      return notify(`Cette évolution nécessite la classe ${target?.parent ? CLASSES[target.parent].name : target?.name || "associée"}.`);
+    }
+    removeItem(id);
+    if (i.classWeapon === "primordial") save.legacy.primalHeart = true;
+    if (!save.legacy.unlockedClasses.includes(i.classWeapon)) save.legacy.unlockedClasses.push(i.classWeapon);
+    chooseClass(i.classWeapon, true);
+    return;
+  }
+  removeItem(id);
+  if (i.effect?.hp) r.hp = Math.min(r.maxHp, r.hp + i.effect.hp);
+  if (i.effect?.mana) r.mana = Math.min(totals().maxMana, r.mana + i.effect.mana);
+  if (i.effect?.stat) {
+    gainStat(i.effect.stat, i.effect.amount);
+    log(`Utilisation : ${i.name} · +${i.effect.amount} ${statName(i.effect.stat)}.`);
+  } else {
+    log(`Utilisation : ${i.name}.`);
+  }
+  if (i.id === "health-potion" && r.diseases.length && Math.random() < 0.2) r.diseases.shift();
+  persist();
+  renderGame();
+}
+
+export function equip(id) {
+  const i = item(id);
+  if (!i || i.kind !== "equipment") return;
+  const req = Object.entries(i.req || {}).some(([k, v]) => totals()[k] < v);
+  if (req) return notify("Prérequis statistiques non atteint.");
+  const old = save.run.equipment[i.slot];
+  if (old === id) delete save.run.equipment[i.slot];
+  else save.run.equipment[i.slot] = id;
+  log(`${old === id ? "Retrait" : "Équipement"} : ${i.name}.`);
+  persist();
+  renderGame();
+}
+
+export function shopItemCount() {
+  return 4 + (save.run.discoveredZones?.length || 0);
+}
+
+export function refreshShop(notifyPlayer = true) {
+  const candidates = ITEMS.filter(i => i.price && i.kind !== "special");
+  const shuffled = candidates.sort(() => Math.random() - 0.5);
+  save.run.shopStock = shuffled.slice(0, shopItemCount()).map(i => i.id);
+  if (notifyPlayer) log("Le commerce se renouvelle pour les cinq prochaines années.");
+}
+
+export function setAttack(id) {
+  if (!save.run.learned.includes(id) || save.run.equippedAttacks.includes(id)) return;
+  const slot = save.run.equippedAttacks.findIndex(value => !value);
+  if (slot < 0) return notify("Tous les emplacements sont occupés.");
+  equipAttackToSlot(id, slot);
+}
+
+export function equipAttackToSlot(id, slot) {
+  if (!save.run.learned.includes(id) || slot < 0 || slot >= save.run.equippedAttacks.length) return;
+  const previous = save.run.equippedAttacks.findIndex(value => value === id);
+  if (previous >= 0) save.run.equippedAttacks[previous] = null;
+  save.run.equippedAttacks[slot] = id;
+  log(`Attaque équipée : ${ATTACKS.find(a => a.id === id)?.name} dans l'emplacement ${slot + 1}.`);
+  persist();
+  renderGame();
+}
+
+export function removeAttackFromSlot(slot) {
+  if (slot < 0 || slot >= save.run.equippedAttacks.length) return;
+  const id = save.run.equippedAttacks[slot];
+  if (!id) return;
+  save.run.equippedAttacks[slot] = null;
+  log(`Attaque retirée : ${ATTACKS.find(a => a.id === id)?.name}.`);
+  persist();
+  renderGame();
+}
+
+export function chooseClass(id, fromItem = false) {
+  const target = CLASSES[id];
+  const isEvolution = Boolean(target?.hidden && save.run.classId !== "none");
+  if (!target || save.run.classId === id || (!fromItem && !canChangeClass(id))) return;
+  save.run.classId = id;
+  save.run.classXP = 0;
+  save.run.classXPById[id] ||= 0;
+  ensureClassAttack(save.run);
+  log(`${isEvolution ? "Évolution" : "Classe"} choisie pendant la run : ${target.name}.`);
+  persist();
+  renderGame();
+}
+
+export function chooseJob(id) {
+  if (save.run.jobId !== "none" || !save.legacy.unlockedJobs.includes(id)) return;
+  save.run.jobId = id;
+  save.run.jobXP += 1;
+  log(`Métier choisi pendant la run : ${JOBS[id].name}.`);
+  persist();
+  renderGame();
+}
+
+export function die(reason) {
+  const r = save.run;
+  log(reason);
+  save.legacy.deaths++;
+  recordLegacyMasteries(r);
+  save.legacy.bestAge = Math.max(save.legacy.bestAge, r.age);
+  Object.entries(r.maxStats).forEach(([k, v]) => save.legacy.history[k] = Math.max(save.legacy.history[k] || 0, v));
+  const classLevel = r.classId === "none" ? 0 : historicalLevel(r.classId);
+  if (r.classId !== "none" && CLASSES[r.classId].stat) {
+    save.legacy.classStatBonuses[r.classId] = Math.max(
+      save.legacy.classStatBonuses[r.classId] || 0,
+      Math.min(0.9, 0.25 + classLevel * 0.1)
+    );
+  }
+  const talents = [{ name: `Connaissances de ${JOBS[r.jobId].name}`, stat: JOBS[r.jobId].stat }].filter(t => t.stat);
+  talents.forEach(t => {
+    if (!save.legacy.talents.some(x => x.name === t.name)) {
+      save.legacy.talents.push({ ...t, amount: 0.25, source: r.name });
+    }
+  });
+  save.legacy.characters.unshift({
+    name: r.name,
+    stats: { ...r.stats },
+    classId: r.classId,
+    jobId: r.jobId,
+    age: r.age,
+    classLevel: masteryText({ xp: r.classXP }),
+    jobLevel: masteryText({ xp: r.jobXP }),
+    achievements: [...r.learned],
+    discoveries: r.itemsFound,
+    reason
+  });
+  save.legacy.characters = save.legacy.characters.slice(0, 20);
+  setSaveRun(null);
+  setCombat(null);
+  persist();
+  renderCreate();
+  notify("La run est terminée. Une nouvelle génération peut naître.");
+}
+
+export function abandonLife() {
+  if (!save.run || !confirm("Tuer le personnage actuel et commencer une nouvelle vie ?")) return;
+  die("Personnage tué volontairement pour commencer une nouvelle vie.");
+}
+
+export function startLife(e) {
+  e.preventDefault();
+  const data = new FormData(e.target);
+  const r = newRun();
+  r.classId = data.get("class");
+  r.jobId = data.get("job");
+  const enteredName = String(data.get("name") || "").trim();
+  r.name = enteredName || RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+  r.maxStats = { ...r.stats };
+  save.legacy.talents.filter(t => !t.classId || t.classId === r.classId).forEach(t => {
+    r.stats[t.stat] += t.amount;
+  });
+  r.talents = [...save.legacy.talents];
+  const classStatBonus = save.legacy.classStatBonuses[r.classId];
+  if (classStatBonus && CLASSES[r.classId].stat) r.stats[CLASSES[r.classId].stat] += classStatBonus;
+  Object.values(save.legacy.masteryBonuses || {}).forEach(domain => {
+    Object.entries(domain.values || {}).forEach(([key, value]) => {
+      if (STATS.some(([id]) => id === key)) r.stats[key] += value;
+    });
+  });
+  const cls = CLASSES[r.classId];
+  const job = JOBS[r.jobId];
+  if (cls.stat) r.stats[cls.stat]++;
+  if (job.stat) r.stats[job.stat]++;
+  r.maxStats = { ...r.stats };
+  r.mana = 25 + r.stats.magic * 4 + r.stats.knowledge * 2;
+  setSaveRun(r);
+  log("Naissance. Les héritages accélèrent l'apprentissage de cette génération.");
+  persist();
+  renderCreate();
+}
