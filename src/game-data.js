@@ -2,12 +2,12 @@ export const STATS = [
   ["strength", "Force"], ["magic", "Magie"], ["agility", "Agilité"],
   ["constitution", "Constitution"], ["knowledge", "Savoir"], ["luck", "Chance"]
 ];
-export const RANDOM_NAMES = ["Ari", "Arthur", "Jade", "Oscar", "Ambre", "Emma", "Alice", "Bob", "Charlie", "Mira", "Nora", "Iris", "Léo", "Sacha", "Noé", "Alix", "Micky", "Vincent", "Ethan", "Lucien", "Aloyse", "Anna", "Léa", "Thiméo", "Sandy", "Alyson", "Clément", "Nicolas", "Ruben", "Déborah", "Antoine", "Gabriel", "Louise", "Thomas", "Paul", "Marie", "Sophie", "Julien", "Camille", "Lucas", "Chloe", "Maxime", "Manon]", "Raphaël", "Aura"];
+export const RANDOM_NAMES = ["Ari", "Arthur", "Jade", "Oscar", "Ambre", "Emma", "Alice", "Bob", "Charlie", "Mira", "Nora", "Iris", "Léo", "Sacha", "Noé", "Alix", "Micky", "Vincent", "Ethan", "Lucien", "Aloyse", "Anna", "Léa", "Thiméo", "Sandy", "Alyson", "Clément", "Nicolas", "Ruben", "Déborah", "Antoine", "Gabriel", "Louise", "Thomas", "Paul", "Marie", "Sophie", "Julien", "Camille", "Lucas", "Chloe", "Maxime", "Manon", "Raphaël", "Aura"];
 export const ELEMENTS = { fire: "Feu", ice: "Glace", wind: "Vent", earth: "Terre" };
 export const WEAPONS = { sword: "Épées", axe: "Haches", hammer: "Masses et marteaux", spear: "Lances", bow: "Arcs et arbalètes", dagger: "Dagues", unarmed: "Mains nues", catalyst: "Catalyseurs" };
 export const SLOTS = { main: "Arme principale", off: "Arme secondaire", helmet: "Casque", chest: "Plastron", legs: "Jambières", boots: "Bottes", gloves: "Gants", accessory1: "Accessoire 1", accessory2: "Accessoire 2" };
 export const MASTERY_LEVELS = ["Débutant", "Apprenti", "Initié", "Adepte", "Confirmé", "Expert", "Maître", "Légende"];
-export const MASTERY_XP = [0, 5, 15, 40, 70, 105, 150, 500];
+export const MASTERY_XP = [0, 5, 20, 45, 80, 125, 180, 500];
 export const MASTERY_DOMAINS = {
   ...Object.fromEntries(Object.entries(WEAPONS).map(([id, name]) => [id, {
     label: name, source: "Armes", passive: id === "hammer" ? { bluntRes: 1.2, damage: 1.5 } : id === "bow" ? { accuracy: 1.5, attackSpeed: 1 } : id === "dagger" ? { accuracy: 1, evasion: 1.2 } : id === "catalyst" ? { magicPower: 1.5, manaRegen: .3 } : id === "unarmed" ? { defense: 1, damage: 1 } : { damage: 1.2, accuracy: .5 }
@@ -20,7 +20,7 @@ export const MASTERY_DOMAINS = {
   scholar: { label: "Érudit", source: "Métiers", passive: { workGold: 1, studyYield: .8, magicPower: 1 } },
   blacksmith: { label: "Forgeron", source: "Métiers", passive: { workGold: 1, equipmentPower: 1 } },
   alchemist: { label: "Alchimiste", source: "Métiers", passive: { workGold: 1, lifeRegen: 1, magicPower: .5 } },
-  gambler : { label: "Parieur", source: "Métiers", passive: { workGold: 1, luck: 1.5 } },
+  gambler : { label: "Parieur", source: "Métiers", passive: { workGold: 1, luck: 0.5 } },
   concentration: { label: "Concentration du mana", source: "Techniques", passive: { manaRegen: .8, manaEfficiency: 1.5 } },
   manaExpansion: { label: "Expansion de mana", source: "Techniques", passive: { maxMana: 10 } }
 };

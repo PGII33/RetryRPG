@@ -15,6 +15,8 @@ import {
 import { learnAttack, ensureClassAttack } from "./progression.js";
 import { renderGame, renderCreate } from "./ui.js";
 
+export const BASE_JOB_XP = 0.5;
+
 export function log(text) {
   save.run.log.unshift(`${save.run.age} ans : ${text}`);
   save.run.log = save.run.log.slice(0, 60);
@@ -226,7 +228,7 @@ export function doAction(id) {
   if (id === "work") {
     const job = JOBS[r.jobId];
     const earnings = estimatedWork();
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     r.gold += earnings;
     save.legacy.goldEarned += earnings;
     r.workActions++;
@@ -239,7 +241,7 @@ export function doAction(id) {
     if (r.jobId !== "farmer") return notify("Cette activité est réservée aux fermiers.");
     addItem("bread");
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
       `Travail de Fermier : Pain produit et ajouté à l'inventaire${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { constitution: 0.2 }
@@ -249,7 +251,7 @@ export function doAction(id) {
     if (r.jobId !== "merchant") return notify("Cette activité est réservée aux marchands.");
     const items = merchantTradeItems();
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     if (items.length) {
       items.forEach(it => {
         addItem(it.id);
@@ -299,7 +301,7 @@ export function doAction(id) {
     const won = Math.random() < chance;
 
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
 
     if (won) {
       const netGain = Math.round(bet * (multiplier - 1));
@@ -324,7 +326,7 @@ export function doAction(id) {
     r.mana = Math.min(totals().maxMana, r.mana + 15);
     const mg = gainMastery("techniqueMastery", "manaExpansion", 2);
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
       `Lecture arcanique : -20 or · +${mg} XP en Expansion de mana${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { knowledge: 0.25, magic: 0.2 }
@@ -336,7 +338,7 @@ export function doAction(id) {
     r.gold -= 30;
     r.equipmentRefinement = (r.equipmentRefinement || 0) + 1;
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
       `Forge (or) : Équipement renforcé au rang +${r.equipmentRefinement} (-30 or)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { strength: 0.25 }
@@ -352,7 +354,7 @@ export function doAction(id) {
 
     r.equipmentRefinement = (r.equipmentRefinement || 0) + 1;
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
       `Forge (matériaux) : Équipement renforcé au rang +${r.equipmentRefinement} (-1 ${usedMat})${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { strength: 0.25 }
@@ -364,7 +366,7 @@ export function doAction(id) {
     if ((r.gold || 0) < 25) return notify("Vous n'avez pas assez d'or (25 po nécessaires).");
     r.gold -= 25;
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     advanceYear();
     const cured = r.diseases.shift() || { name: "Maladie" };
     return completeAction(
@@ -383,7 +385,7 @@ export function doAction(id) {
     else return notify("Aucun ingrédient disponible pour préparer le remède.");
 
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     advanceYear();
     const cured = r.diseases.shift() || { name: "Maladie" };
     return completeAction(
@@ -396,7 +398,7 @@ export function doAction(id) {
     if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
     addItem("greater-health-potion");
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
       `Alchimie : Potion de soin avancée préparée gratuitement (+60 PV)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { knowledge: 0.2 }
@@ -406,7 +408,7 @@ export function doAction(id) {
     if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
     addItem("greater-mana-potion");
     r.workActions++;
-    const jobXp = gainJobXp(2);
+    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
       `Alchimie : Potion de mana avancée préparée gratuitement (+40 mana)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { knowledge: 0.2 }
@@ -561,7 +563,7 @@ export function chooseClass(id, fromItem = false) {
 export function chooseJob(id) {
   if (save.run.jobId !== "none" || !save.legacy.unlockedJobs.includes(id)) return;
   save.run.jobId = id;
-  save.run.jobXP += 1;
+  save.run.jobXP = 0;
   log(`Métier choisi pendant la run : ${JOBS[id].name}.`);
   persist();
   renderGame();
