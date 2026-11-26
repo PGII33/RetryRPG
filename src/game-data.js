@@ -78,10 +78,10 @@ export const ITEMS = [
   { id: "wisdom-ring", name: "Anneau de sagesse", kind: "equipment", rarity: "Rare", slot: "accessory1", price: 115, sell: 60, bonus: { knowledge: 2, maxMana: 12, magicPower: 3 }, req: { knowledge: 6 } },
   { id: "primal-heart", name: "Cœur primordial", kind: "special", rarity: "Mythique", price: 0, sell: 250, classUnlock: "primordial", classWeapon: "primordial", bonus: { magic: 3, fireRes: 8, iceRes: 8, windRes: 8, earthRes: 8 }, req: {} },
   { id: "health-potion", name: "Potion de soin", kind: "consumable", rarity: "Commun", price: 28, sell: 10, effect: { hp: 25 }, description: "Restaure 25 PV.", stock: 3 },
-  { id: "greater-health-potion", name: "Potion de soin avancée", kind: "consumable", rarity: "Inhabituel", price: 50, sell: 25, effect: { hp: 60 }, description: "Restaure 60 PV." },
-  { id: "bread", name: "Pain", kind: "consumable", rarity: "Commun", price: 16, sell: 10, effect: { hp: 20 }, description: "Restaure 20 PV.", stock: 2 },
+  { id: "greater-health-potion", name: "Potion de soin avancée", kind: "consumable", rarity: "Inhabituel", price: 50, sell: 25, craft_only: true, effect: { hp: 60 }, description: "Restaure 60 PV." },
+  { id: "bread", name: "Pain", kind: "consumable", rarity: "Commun", price: 16, sell: 10, craft_only: true, effect: { hp: 20 }, description: "Restaure 20 PV.", stock: 2 },
   { id: "mana-potion", name: "Potion de mana", kind: "consumable", rarity: "Inhabituel", price: 46, sell: 17, effect: { mana: 18 }, description: "Restaure 18 mana.", stock: 2 },
-  { id: "greater-mana-potion", name: "Potion de mana avancée", kind: "consumable", rarity: "Rare", price: 75, sell: 35, effect: { mana: 40 }, description: "Restaure 40 mana." },
+  { id: "greater-mana-potion", name: "Potion de mana avancée", kind: "consumable", rarity: "Rare", price: 75, sell: 35, craft_only: true, effect: { mana: 40 }, description: "Restaure 40 mana." },
   { id: "tonic-constitution", name: "Tonique de constitution", kind: "consumable", rarity: "Rare", price: 145, sell: 55, effect: { stat: "constitution", amount: 1 }, description: "Augmente durablement la Constitution.", stock: 1 },
   { id: "old-gem", name: "Gemme ancienne", kind: "valuable", rarity: "Rare", price: 70, sell: 42, description: "Objet de valeur trouvé en exploration." },
   { id: "ore", name: "Minerai de fer", kind: "material", rarity: "Commun", price: 16, sell: 9, description: "Matériau utile au forgeron." },
@@ -124,23 +124,24 @@ ITEMS.push(
   { id: "lucky-coin", name: "Pièce porte-bonheur", kind: "equipment", rarity: "Commun", slot: "accessory2", price: 30, sell: 15, bonus: { luck: 1 }, req: {}, description: "Une pièce usée qui semble attirer la fortune." }
 );
 export const CLASS_STARTING_EQUIPMENT = {
-  none: "apprentice-wraps",
-  warrior: "iron-sword",
+  none: null,
+  warrior: null,
+  mage: null,
+  ranger: null,
+  luckyman: null,
+
   knight: "iron-sword",
   lancer: "wooden-spear",
   hammerer: "mallet-hammer",
   reaver: "wood-axe",
-  mage: "oak-staff",
   fireMage: "ember-wand",
   iceMage: "frost-wand",
   windMage: "wind-wand",
   earthMage: "earth-wand",
   evoker: "oak-staff",
   primordial: "oak-staff",
-  ranger: "short-bow",
   archer: "short-bow",
-  rogue: "iron-dagger",
-  luckyman: "lucky-coin"
+  rogue: "iron-dagger"
 };
 export const ATTACKS = [
   { id: "punch", name: "Coup de poing", type: "physical", damage: "blunt", power: 5, accuracy: 95, mana: 0, desc: "L'attaque de base accessible à tous." },
