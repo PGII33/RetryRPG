@@ -1,7 +1,7 @@
 import {
   CLASSES, JOBS, STATS, STAT_LABELS, PASSIVE_LABELS, WEAPONS, ELEMENTS, MASTERY_DOMAINS
 } from "./game-data.js";
-import { fmtNumber } from "./game-helpers.js?v=3";
+import { fmtNumber, statName } from "./game-helpers.js?v=3";
 import { save, equippedBonuses } from "./state.js";
 import {
   level, heritageProgress, heritageAcquired
@@ -111,7 +111,7 @@ export function estimatedWork() {
 
 export function fmtPassiveValues(values) {
   return Object.entries(values)
-    .map(([key, value]) => `${value >= 0 ? "+" : ""}${fmtNumber(value)} ${STAT_LABELS[key] || PASSIVE_LABELS[key] || key}`)
+    .map(([key, value]) => `${value >= 0 ? "+" : ""}${fmtNumber(value)} ${PASSIVE_LABELS[key] || statName(key)}`)
     .join(", ") || "Aucun effet";
 }
 

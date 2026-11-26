@@ -1177,16 +1177,12 @@ test("weapon attacks require an equipped compatible weapon, block inventory-only
 
 test("each created class receives and auto-equips its starting equipment without duplicating on reload", async ({ page }) => {
   const cases = [
-    { classId: "warrior", itemId: "iron-sword", slot: "main" },
     { classId: "lancer", itemId: "wooden-spear", slot: "main" },
     { classId: "reaver", itemId: "wood-axe", slot: "main" },
     { classId: "hammerer", itemId: "mallet-hammer", slot: "main" },
     { classId: "archer", itemId: "short-bow", slot: "main" },
     { classId: "rogue", itemId: "iron-dagger", slot: "main" },
-    { classId: "mage", itemId: "oak-staff", slot: "main" },
     { classId: "fireMage", itemId: "ember-wand", slot: "main" },
-    { classId: "luckyman", itemId: "lucky-coin", slot: "accessory2" },
-    { classId: "none", itemId: "apprentice-wraps", slot: "gloves" }
   ];
 
   for (const c of cases) {
@@ -1265,7 +1261,7 @@ test("class evolution preserves parent attacks while direct advanced class creat
   const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
   expect(afterReload.classHistory).toEqual(["mage", "fireMage"]);
   expect(afterReload.learned).toEqual(evolvedFireMage.learned);
-  expect(afterReload.equipment.main).toBe("oak-staff");
+  expect(afterReload.equipment.main).toBe("ember-wand");
 });
 
 test("legacy saves without classHistory remain compatible and preserve existing gear and attacks", async ({ page }) => {

@@ -12,7 +12,7 @@ import {
   classLineage, canChangeClass, canUseClassItem, elementalStudyGain, availableStudies, availableTraining, STUDIES, TRAINING,
   merchantTradeItems
 } from "./activities.js";
-import { learnAttack, ensureClassAttack, grantStartingEquipment } from "./progression.js";
+import { learnAttack, ensureClassAttack, grantStartingEquipment, startingEquipmentForClass } from "./progression.js";
 import { renderGame, renderCreate } from "./ui.js";
 
 export const BASE_JOB_XP = 0.5;
@@ -561,6 +561,18 @@ export function chooseClass(id, fromItem = false) {
   }
   ensureClassAttack(save.run);
   log(`${isEvolution ? "Évolution" : "Classe"} choisie pendant la run : ${target.name}.`);
+
+  if (isEvolution) {
+    const starterId = startingEquipmentForClass(id);
+    const alreadyHasIt = starterId && (qty(starterId) > 0 || Object.values(save.run.equipment || {}).includes(starterId));
+    if (starterId && !alreadyHasIt) {
+      const starterItem = grantStartingEquipment(save.run);
+      if (starterItem) {
+        log(`Équipement d'évolution obtenu : ${starterItem.name}.`);
+      }
+    }
+  }
+
   persist();
   renderGame();
 }
