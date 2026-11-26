@@ -479,6 +479,7 @@ export function useItem(id) {
     if (i.classWeapon === "primordial") save.legacy.primalHeart = true;
     if (!save.legacy.unlockedClasses.includes(i.classWeapon)) save.legacy.unlockedClasses.push(i.classWeapon);
     chooseClass(i.classWeapon, true);
+    renderGame();
     return;
   }
   removeItem(id);
@@ -653,6 +654,7 @@ export function startLife(e) {
   if (starterItem) {
     log(`Équipement de départ obtenu : ${starterItem.name}.`);
   }
+  unlockChecks();
   persist();
   renderCreate();
 }

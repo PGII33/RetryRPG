@@ -14,6 +14,7 @@ import {
   availableStudies, availableTraining, availableWorkActivities, canChangeClass, canUseClassItem
 } from "./activities.js";
 import { attackAvailability, classProgressionHistory, hasEquippedWeapon } from "./progression.js";
+import { unlockChecks } from "./actions.js";
 
 export const TABS = [
   ["summary", "Résumé"],
@@ -373,6 +374,7 @@ export const TAB_VIEWS = {
 };
 
 export function renderGame() {
+  unlockChecks();
   ensureSaveShape();
   Object.entries(save.legacy.heritageDomains).forEach(([id, domain]) => {
     if (domain.lastLevel > 0) domain.permanent = heritageAcquired(id, domain.lastLevel);
