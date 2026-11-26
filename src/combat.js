@@ -1,15 +1,16 @@
 import {
   WEAPONS, CLASSES, ATTACKS, STATUS, ZONES, ITEMS
 } from "./game-data.js";
-import { ENEMY_STATUS_EFFECTS } from "./status-config.js";
+import { ENEMY_STATUS_EFFECTS, PLAYER_STATUS_EFFECTS } from "./status-config.js";
 import { notify, item, esc, fmtNumber, statName } from "./game-helpers.js?v=3";
 import { save, combat, setCombat, persist, runState, addItem } from "./state.js";
 import { totals, inheritedBonuses, inheritedDomainBonuses } from "./formulas.js";
 import { classLineage } from "./activities.js";
+import { attackAvailability, classProgressionHistory } from "./progression.js";
 import { gainClassXp, gainMastery, advanceYear, die, log, refreshShop, completeAction } from "./actions.js";
 import { renderGame } from "./ui.js";
 
-export { ENEMY_STATUS_EFFECTS };
+export { ENEMY_STATUS_EFFECTS, PLAYER_STATUS_EFFECTS };
 
 /**
  * Calculates damage-over-time for a status using static damage if configured,
@@ -25,6 +26,93 @@ export function calculateStatusDotDamage(enemy, config) {
     return Math.max(minDamage, Math.round(enemy.maxHp * config.damagePercent));
   }
   return 0;
+}
+
+/**
+ * Normalizes player combat status entries into `{ id, duration, appliedThisTurn? }` objects.
+ */
+export function normalizePlayerStatuses(run) {
+  if (!run) return [];
+  if (!Array.isArray(run.statuses)) {
+    run.statuses = [];
+    return run.statuses;
+  }
+  const normalized = [];
+  const seen = new Set();
+  for (const entry of run.statuses) {
+    const id = typeof entry === "string" ? entry : entry?.id;
+    const config = PLAYER_STATUS_EFFECTS[id];
+    if (!id || !config || seen.has(id)) continue;
+    const duration = typeof entry === "object" && Number.isFinite(entry.duration)
+      ? Math.max(0, Math.floor(entry.duration))
+      : config.duration;
+    if (duration <= 0) continue;
+    seen.add(id);
+    normalized.push({
+      id,
+      duration,
+      ...(typeof entry === "object" && entry.appliedThisTurn ? { appliedThisTurn: true } : {})
+    });
+  }
+  run.statuses = normalized;
+  return normalized;
+}
+
+export function hasPlayerStatus(run, statusId) {
+  return normalizePlayerStatuses(run).some(entry => entry.id === statusId && entry.duration > 0);
+}
+
+/**
+ * Applies or refreshes status effects on the player without stacking duplicates.
+ */
+export function applyPlayerStatuses(run, statusIds) {
+  if (!run || !statusIds?.length) return [];
+  const statuses = normalizePlayerStatuses(run);
+  const messages = [];
+
+  for (const id of statusIds) {
+    const config = PLAYER_STATUS_EFFECTS[id];
+    if (!config) continue;
+    const duration = config.duration;
+    const label = STATUS[id] || id;
+    const existing = statuses.find(entry => entry.id === id);
+
+    if (existing) {
+      existing.duration = Math.max(existing.duration, duration);
+      if (config.appliedOnPlayerPhase) existing.appliedThisTurn = true;
+      messages.push(`${label} prolongée (${existing.duration} tours)`);
+    } else {
+      const next = { id, duration };
+      if (config.appliedOnPlayerPhase) next.appliedThisTurn = true;
+      statuses.push(next);
+      messages.push(`${label} active (${duration} tours)`);
+    }
+  }
+  return messages;
+}
+
+/**
+ * Decrements player combat status durations at the end of a round and removes expired effects.
+ */
+export function tickPlayerStatuses(run) {
+  const statuses = normalizePlayerStatuses(run);
+  const remaining = [];
+
+  for (const entry of statuses) {
+    if (entry.appliedThisTurn) {
+      delete entry.appliedThisTurn;
+      remaining.push(entry);
+      continue;
+    }
+    entry.duration -= 1;
+    if (entry.duration <= 0) {
+      combat?.log.unshift(`Effet expiré sur ${run.name} : ${STATUS[entry.id] || entry.id}.`);
+    } else {
+      remaining.push(entry);
+    }
+  }
+
+  run.statuses = remaining;
 }
 
 /**
@@ -223,10 +311,15 @@ export function chooseAttack(id) {
 export function autoTurn() {
   if (!combat || combat.finished) return;
   const e = combat.enemy;
+  const manaEfficiency = inheritedBonuses().manaEfficiency || 0;
   const usable = save.run.equippedAttacks
     .filter(Boolean)
     .map(id => ATTACKS.find(a => a.id === id))
-    .filter(a => a && save.run.mana >= a.mana);
+    .filter(a => {
+      if (!a) return false;
+      const cost = Math.max(0, Math.ceil((a.mana || 0) * (1 - manaEfficiency / 100)));
+      return attackAvailability(save.run, a, cost).available;
+    });
   const a = usable.find(x => x.type === "heal" && save.run.hp < save.run.maxHp * 0.42)
     || usable.filter(x => x.type !== "heal").sort((x, y) => ((y.power || 0) - (e.res[y.damage] || 0)) - ((x.power || 0) - (e.res[x.damage] || 0)))[0]
     || usable[0];
@@ -238,16 +331,18 @@ export function resolveRound(a) {
   const r = save.run;
   const e = combat.enemy;
   normalizeEnemyStatuses(e);
+  normalizePlayerStatuses(r);
   const inherited = inheritedBonuses();
   const weaponLegacy = inheritedDomainBonuses(a.weapon);
   const elementLegacy = inheritedDomainBonuses(a.element);
   const tot = totals();
   let line = `Tour ${combat.turn} : ${a.name}.`;
-  const cost = Math.max(0, Math.ceil(a.mana * (1 - (inherited.manaEfficiency || 0) / 100)));
-  if (r.mana < cost) return notify("Mana insuffisant.");
+  const cost = Math.max(0, Math.ceil((a.mana || 0) * (1 - (inherited.manaEfficiency || 0) / 100)));
+  const check = attackAvailability(r, a, cost);
+  if (!check.available) return notify(check.reasons[0] || "Attaque indisponible.");
   r.mana -= cost;
-  if (a.classId && classLineage(r.classId).includes(a.classId)) {
-    const classXp = gainClassXp(0.25);
+  if (a.classId && (classLineage(r.classId).includes(a.classId) || classProgressionHistory(r).includes(a.classId))) {
+    const classXp = gainClassXp(0.25, classLineage(r.classId).includes(a.classId) ? null : a.classId);
     line += ` +${classXp} XP de classe.`;
     log(`Attaque de ${CLASSES[a.classId].name} : +${classXp} XP de classe.`);
   }
@@ -256,14 +351,15 @@ export function resolveRound(a) {
     r.hp = Math.min(r.maxHp, r.hp + heal);
     line += ` Soin de ${Math.round(heal)} PV.`;
   } else if (a.type === "buff") {
-    r.statuses.push("guard");
-    line += " Protection active.";
+    const guardMsgs = applyPlayerStatuses(r, ["guard"]);
+    line += ` ${guardMsgs.length ? guardMsgs.join(", ") : "Protection active"}.`;
   } else {
     if (Math.random() * 100 > a.accuracy + (tot.accuracy - 80) + (weaponLegacy.accuracy || 0)) {
       line += " L'attaque échoue.";
     } else {
       let damage = a.power +
         (a.type === "magic" ? tot.magicPower + (elementLegacy.magicPower || 0) : tot.strength * 0.7) +
+        (a.luckScaling ? tot.luck * a.luckScaling : 0) +
         (weaponLegacy.damage || 0) +
         (inherited.damage || 0);
       if (r.hp < r.maxHp * 0.3) {
@@ -280,7 +376,8 @@ export function resolveRound(a) {
       }
       const resist = e.res[a.damage] || 0;
       damage *= Math.max(0.2, 1 - resist / 100);
-      const critical = Math.random() * 100 < tot.crit;
+      const critChance = tot.crit + (a.luckCritBonus ? tot.luck * 0.5 + a.luckCritBonus : 0);
+      const critical = Math.random() * 100 < critChance;
       if (critical) damage *= tot.critDamage / 100;
       damage = Math.max(1, Math.round(damage));
       e.hp = Math.max(0, e.hp - damage);
@@ -311,8 +408,12 @@ export function resolveRound(a) {
     if (isSlowed) {
       enemyDamage = Math.max(1, Math.round(enemyDamage * ENEMY_STATUS_EFFECTS.slow.damageMultiplier));
     }
-    r.hp -= r.statuses.includes("guard") ? Math.round(enemyDamage * 0.55) : enemyDamage;
-    combat.log.unshift(`${e.name} inflige ${enemyDamage} dégâts${isSlowed ? " (ralenti)" : ""}.`);
+    const isGuarded = hasPlayerStatus(r, "guard");
+    const damageTaken = isGuarded
+      ? Math.max(1, Math.round(enemyDamage * PLAYER_STATUS_EFFECTS.guard.damageMultiplier))
+      : enemyDamage;
+    r.hp -= damageTaken;
+    combat.log.unshift(`${e.name} inflige ${damageTaken} dégâts${isSlowed ? " (ralenti)" : ""}${isGuarded ? " (Garde)" : ""}.`);
     if (r.hp <= 0 && Math.random() < 0.12) {
       r.hp = 1;
       combat.log.unshift("Dernier souffle : vous survivez à l'attaque mortelle.");
@@ -321,6 +422,7 @@ export function resolveRound(a) {
   }
 
   tickEnemyStatuses(e);
+  tickPlayerStatuses(r);
   combat.turn++;
   persist();
   renderGame();
@@ -334,6 +436,7 @@ export function finishCombat(win) {
   const e = combat.enemy;
   combat.finished = true;
   e.statuses = [];
+  if (r) r.statuses = [];
   if (!win) {
     combat.log.unshift(`Défaite dans ${z.name} contre ${e.name}.`);
     log(`Défaite dans ${z.name} contre ${e.name}.`);

@@ -29,6 +29,18 @@ export const DEFENSE_DOWN_DURATION = 2;
 export const DEFENSE_DOWN_DAMAGE_MULTIPLIER = 1.25;
 export const DEFENSE_DOWN_DEFENSE_MULTIPLIER = 0.5;
 
+// Player buffs — Guard (Protection)
+export const GUARD_DURATION = 1;
+export const GUARD_DAMAGE_MULTIPLIER = 0.55;
+
+export const PLAYER_STATUS_EFFECTS = {
+  guard: {
+    duration: GUARD_DURATION,
+    damageMultiplier: GUARD_DAMAGE_MULTIPLIER,
+    appliedOnPlayerPhase: true
+  }
+};
+
 export const ENEMY_STATUS_EFFECTS = {
   burn: {
     duration: BURN_DURATION,

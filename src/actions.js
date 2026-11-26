@@ -12,7 +12,7 @@ import {
   classLineage, canChangeClass, canUseClassItem, elementalStudyGain, availableStudies, availableTraining, STUDIES, TRAINING,
   merchantTradeItems
 } from "./activities.js";
-import { learnAttack, ensureClassAttack } from "./progression.js";
+import { learnAttack, ensureClassAttack, grantStartingEquipment } from "./progression.js";
 import { renderGame, renderCreate } from "./ui.js";
 
 export const BASE_JOB_XP = 0.5;
@@ -143,7 +143,7 @@ export function gainMastery(kind, id, amount = 1) {
 
   const unlocks = kind === "elementMastery"
     ? { fire: ["fire"], ice: ["ice"], wind: ["wind"], earth: ["earth"] }
-    : { sword: ["pierce"], spear: ["shot"], hammer: ["smash"], bow: ["shot"], catalyst: ["wind"], dagger: ["pierce"] };
+    : { sword: ["slash"], spear: ["pierce"], hammer: ["smash"], bow: ["shot"], catalyst: ["wind"] };
   const technique = unlocks[id]?.[0];
   if (technique && d.xp >= 8 && !save.run.learned.includes(technique)) {
     learnAttack(save.run, technique);
@@ -554,6 +554,10 @@ export function chooseClass(id, fromItem = false) {
   save.run.classId = id;
   save.run.classXP = 0;
   save.run.classXPById[id] ||= 0;
+  save.run.classHistory ||= [];
+  if (id !== "none" && !save.run.classHistory.includes(id)) {
+    save.run.classHistory.push(id);
+  }
   ensureClassAttack(save.run);
   log(`${isEvolution ? "Évolution" : "Classe"} choisie pendant la run : ${target.name}.`);
   persist();
@@ -641,8 +645,14 @@ export function startLife(e) {
   if (job.stat) r.stats[job.stat]++;
   r.maxStats = { ...r.stats };
   r.mana = 25 + r.stats.magic * 4 + r.stats.knowledge * 2;
+  r.classHistory = r.classId && r.classId !== "none" ? [r.classId] : [];
+  ensureClassAttack(r);
+  const starterItem = grantStartingEquipment(r);
   setSaveRun(r);
   log("Naissance. Les héritages accélèrent l'apprentissage de cette génération.");
+  if (starterItem) {
+    log(`Équipement de départ obtenu : ${starterItem.name}.`);
+  }
   persist();
   renderCreate();
 }

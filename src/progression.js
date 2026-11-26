@@ -1,7 +1,7 @@
 import {
-  MASTERY_LEVELS, MASTERY_XP, MASTERY_DOMAINS, WEAPONS, ELEMENTS, CLASSES, ATTACKS
+  MASTERY_LEVELS, MASTERY_XP, MASTERY_DOMAINS, WEAPONS, ELEMENTS, CLASSES, ATTACKS, CLASS_STARTING_EQUIPMENT
 } from "./game-data.js";
-import { fmtNumber } from "./game-helpers.js?v=3";
+import { fmtNumber, item } from "./game-helpers.js?v=3";
 
 export const DEFAULT_RANK_CURVE = [1, 2, 3, 4, 5, 6, 7];
 
@@ -102,7 +102,88 @@ export function learnAttack(run, id) {
   if (slot >= 0) run.equippedAttacks[slot] = id;
 }
 
+export function classProgressionHistory(run) {
+  if (!run) return [];
+  const history = Array.isArray(run.classHistory) ? [...run.classHistory] : [];
+  if (run.classId && run.classId !== "none" && !history.includes(run.classId)) {
+    history.push(run.classId);
+  }
+  return history;
+}
+
 export function ensureClassAttack(run) {
-  const attack = ATTACKS.find(a => a.classId === run.classId);
-  if (attack) learnAttack(run, attack.id);
+  const history = classProgressionHistory(run);
+  ATTACKS.filter(a => a.classId && history.includes(a.classId))
+    .forEach(attack => learnAttack(run, attack.id));
+}
+
+export function hasEquippedWeapon(run, weaponType) {
+  if (!weaponType || weaponType === "unarmed") return true;
+  return Object.values(run?.equipment || {}).some(itemId => item(itemId)?.weapon === weaponType);
+}
+
+/**
+ * Evaluates class progression, weapon equipment, and mana prerequisites for an attack.
+ */
+export function attackAvailability(run, attack, effectiveManaCost = null) {
+  if (!run || !attack) {
+    return {
+      available: false,
+      reasons: ["Attaque indisponible."],
+      missingClass: null,
+      missingWeapon: null,
+      insufficientMana: false,
+      manaCost: 0
+    };
+  }
+  const reasons = [];
+  let missingClass = null;
+  let missingWeapon = null;
+  let insufficientMana = false;
+  const manaCost = effectiveManaCost ?? (attack.mana || 0);
+
+  if (attack.classId && !classProgressionHistory(run).includes(attack.classId)) {
+    missingClass = CLASSES[attack.classId]?.name || attack.classId;
+    reasons.push(`Classe requise : ${missingClass}`);
+  }
+  if (attack.weapon && !hasEquippedWeapon(run, attack.weapon)) {
+    missingWeapon = WEAPONS[attack.weapon] || attack.weapon;
+    reasons.push(`Arme requise : ${missingWeapon}`);
+  }
+  if ((run.mana || 0) < manaCost) {
+    insufficientMana = true;
+    reasons.push(`Mana insuffisant (${manaCost} requis)`);
+  }
+
+  return {
+    available: reasons.length === 0,
+    reasons,
+    missingClass,
+    missingWeapon,
+    insufficientMana,
+    manaCost
+  };
+}
+
+export function startingEquipmentForClass(classId) {
+  return CLASS_STARTING_EQUIPMENT[classId] || CLASS_STARTING_EQUIPMENT.none || null;
+}
+
+export function grantStartingEquipment(run) {
+  if (!run) return null;
+  const itemId = startingEquipmentForClass(run.classId);
+  const equipmentItem = item(itemId);
+  if (!equipmentItem) return null;
+
+  run.inventory ||= {};
+  run.equipment ||= {};
+  run.inventory[itemId] = (run.inventory[itemId] || 0) + 1;
+
+  if (equipmentItem.kind === "equipment" && equipmentItem.slot && !run.equipment[equipmentItem.slot]) {
+    const meetsReq = Object.entries(equipmentItem.req || {}).every(([k, v]) => (run.stats?.[k] || 0) >= v);
+    if (meetsReq) {
+      run.equipment[equipmentItem.slot] = itemId;
+    }
+  }
+  return equipmentItem;
 }

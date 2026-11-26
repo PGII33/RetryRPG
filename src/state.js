@@ -1,5 +1,5 @@
 import {
-  STATS, WEAPONS, ELEMENTS, MASTERY_DOMAINS, emptyMastery
+  STATS, WEAPONS, ELEMENTS, MASTERY_DOMAINS, ATTACKS, CLASSES, emptyMastery
 } from "./game-data.js";
 import { loadSave, saveGame } from "./storage.js";
 import { item } from "./game-helpers.js?v=3";
@@ -36,6 +36,7 @@ export function newRun() {
     maxHp: 100,
     mana: 30,
     classId: "none",
+    classHistory: [],
     jobId: "none",
     stats: Object.fromEntries(STATS.map(([id]) => [id, 3 + Math.floor(Math.random() * 3)])),
     maxStats: Object.fromEntries(STATS.map(([id]) => [id, 3])),
@@ -210,14 +211,29 @@ export function ensureSaveShape() {
   r.discoveredZones ||= [];
   r.log ||= [];
   r.learned ||= ["punch"];
+  r.statuses ||= [];
   r.classXPById ||= {};
   if (r.classId && r.classId !== "none" && r.classXP && r.classXPById[r.classId] === undefined) {
     r.classXPById[r.classId] = r.classXP;
   }
-  r.learned = r.learned.map(id => id === "slash" ? "punch" : id);
+  if (!Array.isArray(r.classHistory)) {
+    const inferred = new Set(Object.keys(r.classXPById).filter(id => id && id !== "none" && CLASSES[id]));
+    r.learned.forEach(attackId => {
+      const atk = ATTACKS.find(a => a.id === attackId);
+      if (atk?.classId && CLASSES[atk.classId]) inferred.add(atk.classId);
+    });
+    if (r.classId && r.classId !== "none" && CLASSES[r.classId]) inferred.add(r.classId);
+    r.classHistory = [...inferred];
+  }
+  if (!r.learned.includes("punch") && r.learned.includes("slash")) {
+    r.learned = r.learned.map(id => id === "slash" ? "punch" : id);
+    if (Array.isArray(r.equippedAttacks)) {
+      r.equippedAttacks = r.equippedAttacks.map(id => id === "slash" ? "punch" : id);
+    }
+  }
+  r.learned = [...new Set(r.learned)];
   if (!r.learned.includes("punch")) r.learned.unshift("punch");
   r.equippedAttacks ||= ["punch", null, null, null];
-  r.equippedAttacks = r.equippedAttacks.map(id => id === "slash" ? "punch" : id);
   r.shopStock ||= ["iron-sword", "leather-hood", "health-potion", "old-gem"];
   r.masteryLevels ||= {};
   Object.keys(MASTERY_DOMAINS).forEach(id => {

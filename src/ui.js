@@ -8,11 +8,12 @@ import {
 } from "./state.js";
 import {
   totals, lifeExpectancy, masteryText, fmtPassiveValues, masteryDomain, estimatedWork,
-  level, heritageAcquired
+  level, heritageAcquired, inheritedBonuses
 } from "./formulas.js";
 import {
   availableStudies, availableTraining, availableWorkActivities, canChangeClass, canUseClassItem
 } from "./activities.js";
+import { attackAvailability, classProgressionHistory, hasEquippedWeapon } from "./progression.js";
 
 export const TABS = [
   ["summary", "Résumé"],
@@ -211,17 +212,53 @@ export function combatMarkup() {
 export function combatMarkupActive() {
   const c = combat;
   const e = c.enemy;
-  const equipped = save.run.equippedAttacks.filter(Boolean);
+  const r = save.run;
+  const equipped = r.equippedAttacks.filter(Boolean);
   const combatAttacks = equipped.length ? equipped : ["punch"];
   const enemyStatuses = (e.statuses || [])
     .map(s => typeof s === "string" ? (STATUS[s] || s) : `${STATUS[s.id] || s.id} (${s.duration} t.)`)
     .join(", ");
-  return `<div class="panel"><div class="combat-head"><div><h2>${e.name}</h2><p class="hp">PV ${fmtNumber(Math.max(0, e.hp))} / ${fmtNumber(e.maxHp)}</p><div class="bar"><i style="width:${Math.max(0, e.hp / e.maxHp * 100)}%"></i></div><p>Résistances : ${Object.entries(e.res).map(([k, v]) => `${statName(RES_KEYS[k])} ${fmtNumber(v)}%`).join(" · ")}</p><p class="enemy-statuses muted">Statuts : ${enemyStatuses ? esc(enemyStatuses) : "Aucun"}</p></div><div><h3>${save.run.name}</h3><p class="hp">PV ${fmtNumber(Math.ceil(save.run.hp))} / ${fmtNumber(save.run.maxHp)}</p><p class="mana">Mana ${fmtNumber(Math.ceil(save.run.mana))} / ${fmtNumber(Math.ceil(totals().maxMana))}</p><p>Mode : <b>${c.mode === "auto" ? "Automatique" : "Manuel"}</b> · Tour ${fmtNumber(c.turn)}</p></div></div>${c.mode === "manual" ? `<h3>Choisir une attaque</h3><div class="attack-grid">${combatAttacks.map(id => attackCard(ATTACKS.find(a => a.id === id))).join("")}</div>` : `<div class="notice">L'automatisation choisit une attaque adaptée à vos PV, votre mana et les résistances ennemies.<br><button class="primary-button" data-auto-turn>Résoudre le tour automatique</button></div>`}<div class="battle-log">${c.log.map(x => `<p>${esc(x)}</p>`).join("")}</div></div>`;
+  const playerStatuses = (r.statuses || [])
+    .map(s => typeof s === "string" ? (STATUS[s] || s) : `${STATUS[s.id] || s.id} (${s.duration} t.)`)
+    .join(", ");
+  const history = classProgressionHistory(r);
+  const lockedAttacks = ATTACKS.filter(a => !r.learned.includes(a.id) && a.classId && !history.includes(a.classId));
+  const lockedSection = lockedAttacks.length
+    ? `<details class="locked-attacks-panel"><summary class="muted">Attaques verrouillées par classe (${lockedAttacks.length})</summary><div class="attack-grid">${lockedAttacks.map(a => lockedAttackCard(a)).join("")}</div></details>`
+    : "";
+  return `<div class="panel"><div class="combat-head"><div><h2>${e.name}</h2><p class="hp">PV ${fmtNumber(Math.max(0, e.hp))} / ${fmtNumber(e.maxHp)}</p><div class="bar"><i style="width:${Math.max(0, e.hp / e.maxHp * 100)}%"></i></div><p>Résistances : ${Object.entries(e.res).map(([k, v]) => `${statName(RES_KEYS[k])} ${fmtNumber(v)}%`).join(" · ")}</p><p class="enemy-statuses muted">Statuts : ${enemyStatuses ? esc(enemyStatuses) : "Aucun"}</p></div><div><h3>${esc(r.name)}</h3><p class="hp">PV ${fmtNumber(Math.ceil(r.hp))} / ${fmtNumber(r.maxHp)}</p><p class="mana">Mana ${fmtNumber(Math.ceil(r.mana))} / ${fmtNumber(Math.ceil(totals().maxMana))}</p><p>Mode : <b>${c.mode === "auto" ? "Automatique" : "Manuel"}</b> · Tour ${fmtNumber(c.turn)}</p><p class="player-statuses muted">Statuts : ${playerStatuses ? esc(playerStatuses) : "Aucun"}</p></div></div>${c.mode === "manual" ? `<h3>Choisir une attaque</h3><div class="attack-grid">${combatAttacks.map(id => attackCard(ATTACKS.find(a => a.id === id))).join("")}</div>${lockedSection}` : `<div class="notice">L'automatisation choisit une attaque adaptée à vos PV, votre mana et les résistances ennemies.<br><button class="primary-button" data-auto-turn>Résoudre le tour automatique</button></div>`}<div class="battle-log">${c.log.map(x => `<p>${esc(x)}</p>`).join("")}</div></div>`;
+}
+
+export function effectiveAttackCost(a) {
+  if (!a) return 0;
+  const manaEff = inheritedBonuses().manaEfficiency || 0;
+  return Math.max(0, Math.ceil((a.mana || 0) * (1 - manaEff / 100)));
+}
+
+export function attackTagsMarkup(a) {
+  const tags = [];
+  if (a.classId && CLASSES[a.classId]) tags.push(`Classe : ${CLASSES[a.classId].name}`);
+  if (a.weapon) tags.push(`Arme : ${WEAPONS[a.weapon] || a.weapon}`);
+  if (a.status?.length) {
+    const names = a.status.map(s => STATUS[typeof s === "string" ? s : s.id] || s).join(", ");
+    tags.push(`Effet : ${names}`);
+  }
+  return tags.length ? `<small class="muted">${esc(tags.join(" · "))}</small>` : "";
 }
 
 export function attackCard(a) {
   if (!a) return '<article class="attack-card locked"><strong>Emplacement vide</strong><p>Aucune technique équipée.</p></article>';
-  return `<article class="attack-card"><strong>${a.name}</strong><small>${a.damage || a.type} · puissance ${a.power} · Précision : ${a.accuracy} · ${a.mana} mana</small><p>${a.desc}</p><button class="mini-button" data-attack="${a.id}" ${save.run.mana < a.mana ? "disabled" : ""}>Utiliser</button></article>`;
+  const cost = effectiveAttackCost(a);
+  const check = attackAvailability(save.run, a, cost);
+  const lockNote = !check.available ? `<small class="danger">${esc(check.reasons.join(" · "))}</small>` : "";
+  return `<article class="attack-card${check.available ? "" : " locked"}" data-attack-card="${a.id}"><strong>${esc(a.name)}</strong><small>${a.damage || a.type} · puissance ${a.power} · Précision : ${a.accuracy}% · ${cost} mana</small>${attackTagsMarkup(a)}<p>${esc(a.desc)}</p>${lockNote}<button class="mini-button" data-attack="${a.id}" ${check.available ? "" : "disabled"}>Utiliser</button></article>`;
+}
+
+export function lockedAttackCard(a) {
+  const cost = effectiveAttackCost(a);
+  const check = attackAvailability(save.run, a, cost);
+  const lockReasons = check.reasons.filter(reason => !reason.startsWith("Mana insuffisant"));
+  return `<article class="attack-card locked" data-locked-attack="${a.id}"><strong>${esc(a.name)} 🔒</strong><small>${a.damage || a.type} · puissance ${a.power} · Précision : ${a.accuracy}% · ${cost} mana</small>${attackTagsMarkup(a)}<small class="danger">${esc(lockReasons.join(" · ") || "Verrouillée")}</small></article>`;
 }
 
 export function formatAttackDetails(a) {
@@ -246,7 +283,7 @@ export function formatAttackDetails(a) {
     details.push(`Précision : ${a.accuracy}%`);
   }
 
-  details.push(`Coût : ${a.mana ?? 0} mana`);
+  details.push(`Coût : ${effectiveAttackCost(a)} mana`);
 
   if (a.weapon) {
     details.push(`Arme : ${WEAPONS[a.weapon] || a.weapon}`);
@@ -283,7 +320,10 @@ export function statsMarkup() {
     const equipped = r.equippedAttacks.includes(id);
     const attackName = a?.name || id;
     const detailsHtml = a ? formatAttackDetails(a) : "";
-    return `<article class="attack-card" draggable="true" data-drag-attack="${id}"><header><strong>${attackName}</strong><small class="muted">${equipped ? "Déjà équipée" : "Glisser ou équiper automatiquement"}</small></header>${detailsHtml}<button class="mini-button" data-set-attack="${id}" ${equipped ? "disabled" : ""}>Équiper</button></article>`;
+    const missingWeapon = a?.weapon && !hasEquippedWeapon(r, a.weapon)
+      ? `<small class="danger">Arme requise non équipée : ${esc(WEAPONS[a.weapon] || a.weapon)}</small>`
+      : "";
+    return `<article class="attack-card" draggable="true" data-drag-attack="${id}"><header><strong>${attackName}</strong><small class="muted">${equipped ? "Déjà équipée" : "Glisser ou équiper automatiquement"}</small></header>${detailsHtml}${missingWeapon}<button class="mini-button" data-set-attack="${id}" ${equipped ? "disabled" : ""}>Équiper</button></article>`;
   }).join("");
   const detailedStats = [...STATS.map(([id, name]) => [id, name]), ...Object.entries(STAT_LABELS)];
   const detailed = detailedStats.map(([id, name]) =>

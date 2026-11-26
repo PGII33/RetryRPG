@@ -869,7 +869,7 @@ test("normal combat without enemy statuses and player guard behave without regre
       playerHp: state.save.run.hp
     };
   });
-  expect(afterGuard.playerStatuses).toContain("guard");
+  expect(afterGuard.playerStatuses).toEqual([{ id: "guard", duration: 1 }]);
   const guardedDamage = afterPunch.playerHp - afterGuard.playerHp;
   expect(guardedDamage).toBeLessThan(unguardedDamage);
 });
@@ -1027,6 +1027,271 @@ test("centralized enemy status configuration exposes expected defaults and suppo
   expect(res.halvedSlowEnemyDmg).toBe(Math.max(1, Math.round(res.baselineEnemyDmg * 0.5)));
   expect(res.doubledPunchDmg).toBe(res.baselinePunchDmg * 2);
 });
+
+test("guard has finite duration, refreshes predictably without stacking, expires cleanly, and clears on combat end", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.learned = ["punch", "guard"];
+    save.run.equippedAttacks = ["punch", "guard", null, null];
+    save.run.stats.strength = 4;
+    save.run.stats.constitution = 3;
+    save.run.hp = 200;
+    save.run.maxHp = 200;
+    save.run.mana = 50;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.evaluate(() => {
+    Math.random = () => 0.5;
+  });
+  await page.locator("[data-combat-zone]").first().click();
+
+  // Turn 1: cast Garde -> reduces Turn 1 enemy damage, duration stays 1 (not reduced on application turn)
+  await page.locator('[data-attack="guard"]').click();
+  await expect(page.locator(".player-statuses")).toContainText("Protection (1 t.)");
+
+  const r1 = await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    state.combat.enemy.hp = 200;
+    state.combat.enemy.maxHp = 200;
+    return {
+      hp: state.save.run.hp,
+      statuses: state.save.run.statuses.map(s => ({ ...s }))
+    };
+  });
+  expect(r1.statuses).toEqual([{ id: "guard", duration: 1 }]);
+  const dmgTurn1 = 200 - r1.hp;
+
+  // Reapply Garde while active -> refreshes to duration 1 without duplicating entry
+  await page.locator('[data-attack="guard"]').click();
+  const afterRefresh = await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    return state.save.run.statuses.map(s => ({ ...s }));
+  });
+  expect(afterRefresh).toEqual([{ id: "guard", duration: 1 }]);
+
+  // Let guard expire on the next turn (Turn 3: 1->0 expired)
+  await page.locator('[data-attack="punch"]').click();
+  await expect(page.locator(".player-statuses")).toContainText("Statuts : Aucun");
+  await expect(page.locator(".battle-log")).toContainText("Effet expiré");
+
+  const hpBeforeUnguarded = await page.evaluate(async () => (await import("/src/state.js")).save.run.hp);
+  await page.locator('[data-attack="punch"]').click();
+  const hpAfterUnguarded = await page.evaluate(async () => (await import("/src/state.js")).save.run.hp);
+  const unguardedDmg = hpBeforeUnguarded - hpAfterUnguarded;
+  expect(unguardedDmg).toBeGreaterThan(dmgTurn1);
+
+
+  // Recast guard and finish combat -> player statuses cleared on combat victory
+  await page.locator('[data-attack="guard"]').click();
+  await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    state.combat.enemy.hp = 1;
+  });
+  await page.locator('[data-attack="punch"]').click();
+  const afterCombat = await page.evaluate(async () => (await import("/src/state.js")).save.run.statuses);
+  expect(afterCombat).toEqual([]);
+});
+
+test("weapon attacks require an equipped compatible weapon, block inventory-only usage, and consume neither mana nor turn", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.classId = "knight";
+    save.run.classHistory = ["warrior", "knight"];
+    save.run.stats.strength = 8;
+    save.run.mana = 25;
+    // Own sword in inventory ONLY (not equipped)
+    save.run.inventory["iron-sword"] = 1;
+    save.run.equipment = {};
+    save.run.learned = ["punch", "slash", "knight-slash"];
+    save.run.equippedAttacks = ["punch", "slash", "knight-slash", null];
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.evaluate(() => {
+    Math.random = () => 0.5;
+  });
+  await page.locator("[data-combat-zone]").first().click();
+
+  // UI disables sword attacks and displays weapon requirement
+  await expect(page.locator('[data-attack-card="knight-slash"]')).toContainText("Arme requise : Épées");
+  await expect(page.locator('[data-attack="knight-slash"]')).toBeDisabled();
+  await expect(page.locator('[data-attack="slash"]')).toBeDisabled();
+  await expect(page.locator('[data-attack="punch"]')).toBeEnabled();
+
+  // Logic check: attempting to invoke knight-slash directly does not consume mana, turn, or enemy HP
+  const blockedCheck = await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    const combatMod = await import("/src/combat.js");
+    const beforeMana = state.save.run.mana;
+    const beforeTurn = state.combat.turn;
+    const beforeEnemyHp = state.combat.enemy.hp;
+    const beforePlayerHp = state.save.run.hp;
+
+    combatMod.chooseAttack("knight-slash");
+
+    return {
+      manaUnchanged: state.save.run.mana === beforeMana,
+      turnUnchanged: state.combat.turn === beforeTurn,
+      enemyHpUnchanged: state.combat.enemy.hp === beforeEnemyHp,
+      playerHpUnchanged: state.save.run.hp === beforePlayerHp,
+      toastText: document.querySelector("#toast").textContent
+    };
+  });
+
+  expect(blockedCheck.manaUnchanged).toBe(true);
+  expect(blockedCheck.turnUnchanged).toBe(true);
+  expect(blockedCheck.enemyHpUnchanged).toBe(true);
+  expect(blockedCheck.playerHpUnchanged).toBe(true);
+  expect(blockedCheck.toastText).toContain("Arme requise : Épées");
+
+  // Equip the sword and verify knight-slash now works and consumes mana + turn
+  await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    const ui = await import("/src/ui.js");
+    state.save.run.equipment.main = "iron-sword";
+    ui.renderGame();
+  });
+  await expect(page.locator('[data-attack="knight-slash"]')).toBeEnabled();
+  await page.locator('[data-attack="knight-slash"]').click();
+
+  const afterSwordAttack = await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    return {
+      mana: state.save.run.mana,
+      turn: state.combat.turn,
+      enemyHp: state.combat.enemy.hp,
+      enemyMaxHp: state.combat.enemy.maxHp
+    };
+  });
+  expect(afterSwordAttack.mana).toBe(22); // knight-slash costs 3 mana
+  expect(afterSwordAttack.turn).toBe(2);
+  expect(afterSwordAttack.enemyHp).toBeLessThan(afterSwordAttack.enemyMaxHp);
+});
+
+test("each created class receives and auto-equips its starting equipment without duplicating on reload", async ({ page }) => {
+  const cases = [
+    { classId: "warrior", itemId: "iron-sword", slot: "main" },
+    { classId: "lancer", itemId: "wooden-spear", slot: "main" },
+    { classId: "reaver", itemId: "wood-axe", slot: "main" },
+    { classId: "hammerer", itemId: "mallet-hammer", slot: "main" },
+    { classId: "archer", itemId: "short-bow", slot: "main" },
+    { classId: "rogue", itemId: "iron-dagger", slot: "main" },
+    { classId: "mage", itemId: "oak-staff", slot: "main" },
+    { classId: "fireMage", itemId: "ember-wand", slot: "main" },
+    { classId: "luckyman", itemId: "lucky-coin", slot: "accessory2" },
+    { classId: "none", itemId: "apprentice-wraps", slot: "gloves" }
+  ];
+
+  for (const c of cases) {
+    await page.evaluate(classId => {
+      const key = "retry-rpg-save-v2";
+      const save = JSON.parse(localStorage.getItem(key)) || { schema: 3, legacy: { deaths: 0, abandoned: 0, totalActions: 0, bestAge: 16, goldEarned: 0, unlockedClasses: ["none"], unlockedJobs: ["none"], talents: [], classStatBonuses: {}, history: {}, characters: [], discoveries: [] }, run: null };
+      save.run = null;
+      if (!save.legacy.unlockedClasses.includes(classId)) save.legacy.unlockedClasses.push(classId);
+      localStorage.setItem(key, JSON.stringify(save));
+    }, c.classId);
+    await page.reload();
+
+    await page.locator(`input[name="class"][value="${c.classId}"]`).check();
+    await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+
+    const createdRun = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+    expect(createdRun.inventory[c.itemId]).toBe(1);
+    expect(createdRun.equipment[c.slot]).toBe(c.itemId);
+
+    // Reloading must NOT duplicate starting gear
+    await page.reload();
+    const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+    expect(afterReload.inventory[c.itemId]).toBe(1);
+    expect(afterReload.equipment[c.slot]).toBe(c.itemId);
+  }
+});
+
+test("class evolution preserves parent attacks while direct advanced class creation does not inherit parent attacks", async ({ page }) => {
+  // Part A: Direct creation as Fire Mage does NOT grant Mage's mana-sphere
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.legacy.unlockedClasses.push("mage", "fireMage");
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.locator('input[name="class"][value="fireMage"]').check();
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+
+  const directFireMage = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(directFireMage.classId).toBe("fireMage");
+  expect(directFireMage.classHistory).toEqual(["fireMage"]);
+  expect(directFireMage.learned).toContain("punch");
+  expect(directFireMage.learned).toContain("fire-sphere");
+  expect(directFireMage.learned).not.toContain("mana-sphere");
+  expect(directFireMage.equipment.main).toBe("ember-wand");
+
+  // Combat UI shows mana-sphere as locked by class
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.locator("[data-combat-zone]").first().click();
+  await expect(page.locator('[data-locked-attack="mana-sphere"]')).toContainText("Classe requise : Mage");
+
+  // Part B: Starting as Mage and evolving to Fire Mage retains mana-sphere AND unlocks fire-sphere without duplicates
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run = null;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.locator('input[name="class"][value="mage"]').check();
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.getByRole("button", { name: "Classes / métiers" }).click();
+  await page.locator('[data-select-class="fireMage"]').click();
+
+  const evolvedFireMage = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(evolvedFireMage.classId).toBe("fireMage");
+  expect(evolvedFireMage.classHistory).toEqual(["mage", "fireMage"]);
+  expect(evolvedFireMage.learned).toContain("punch");
+  expect(evolvedFireMage.learned).toContain("mana-sphere");
+  expect(evolvedFireMage.learned).toContain("fire-sphere");
+  expect(new Set(evolvedFireMage.learned).size).toBe(evolvedFireMage.learned.length);
+
+  // Reload preserves history, equipment, and unlocked attacks
+  await page.reload();
+  const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(afterReload.classHistory).toEqual(["mage", "fireMage"]);
+  expect(afterReload.learned).toEqual(evolvedFireMage.learned);
+  expect(afterReload.equipment.main).toBe("oak-staff");
+});
+
+test("legacy saves without classHistory remain compatible and preserve existing gear and attacks", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    delete save.run.classHistory;
+    save.run.classId = "knight";
+    save.run.classXPById = { warrior: 10, knight: 4 };
+    save.run.learned = ["punch", "warrior-strike", "knight-slash"];
+    save.run.equippedAttacks = ["punch", "warrior-strike", "knight-slash", null];
+    save.run.equipment = { main: "warrior-blade" };
+    save.run.inventory = { "warrior-blade": 1, "health-potion": 1 };
+    save.run.statuses = ["guard"];
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+
+  const migrated = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
+  expect(migrated.classHistory).toEqual(expect.arrayContaining(["warrior", "knight"]));
+  expect(migrated.equipment.main).toBe("warrior-blade");
+  expect(migrated.learned).toEqual(["punch", "warrior-strike", "knight-slash"]);
+  expect(migrated.inventory["warrior-blade"]).toBe(1);
+});
+
 
 
 
