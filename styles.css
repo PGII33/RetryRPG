@@ -6,3 +6,4 @@
 .attack-info{display:flex;flex-direction:column;gap:4px}
 .attack-desc{font-style:italic}
 .item-stats{color:var(--accent)!important;font-size:.84rem}
+#tab-content > .panel + .panel {margin-top: 18px;}

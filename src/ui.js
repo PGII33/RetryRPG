@@ -21,8 +21,7 @@ export const TABS = [
   ["actions", "Actions"],
   ["classjob", "Classes / métiers"],
   ["market", "Commerce"],
-  ["inventory", "Inventaire"],
-  ["equipment", "Équipement"],
+  ["inventory", "Équipement & Inventaire"],
   ["combat", "Combat"],
   ["stats", "Stats combat"],
   ["legacy", "Héritage"]
@@ -197,6 +196,10 @@ export function inventoryCard(i, count) {
   return `<article class="item-card"><header><strong>${i.name}</strong><span class="tag">x${count}</span></header><small class="muted">${i.rarity} · ${kindLabel} · ${i.sell} or à la vente</small>${statsBonus}${desc}${equipDetails}${isEquip ? `<button class="mini-button" data-equip="${i.id}" ${req.length ? "disabled" : ""}>${equipped ? "Déséquiper" : "Équiper"}</button>${classAction}` : i.kind === "consumable" || i.classUnlock ? `<button class="mini-button" data-use="${i.id}">Utiliser</button>` : ""}<button class="secondary-button" data-sell="${i.id}">Vendre (${i.sell} or)</button></article>`;
 }
 
+export function equipmentInventoryMarkup() {
+  return `${equipmentMarkup()}${inventoryMarkup()}`;
+}
+
 export function equipmentMarkup() {
   return `<div class="panel"><h2>Équipement · 9 emplacements</h2><p class="muted">Les prérequis sont exclusivement statistiques. Les bonus sont recalculés immédiatement.</p><div class="item-grid">${Object.entries(SLOTS).map(([slot, name]) => {
     const id = save.run.equipment[slot];
@@ -366,8 +369,7 @@ export const TAB_VIEWS = {
   actions: actionsMarkup,
   classjob: classJobMarkup,
   market: marketMarkup,
-  inventory: inventoryMarkup,
-  equipment: equipmentMarkup,
+  inventory: equipmentInventoryMarkup,
   combat: combatMarkup,
   stats: statsMarkup,
   legacy: legacyMarkup
