@@ -58,16 +58,15 @@ export function renderCreate() {
   document.querySelector("#game-screen").classList.toggle("hidden", !save.run);
   document.querySelector("#new-life")?.classList.toggle("hidden", !save.run);
   if (save.run) return renderGame();
+
+  ensureSaveShape();
+  Object.entries(save.legacy.heritageDomains).forEach(([id, domain]) => {
+    if (domain.lastLevel > 0) domain.permanent = heritageAcquired(id, domain.lastLevel);
+  });
+
   document.querySelector("#class-options").innerHTML = optionMarkup(CLASSES, save.legacy.unlockedClasses, "class");
   document.querySelector("#job-options").innerHTML = optionMarkup(JOBS, save.legacy.unlockedJobs, "job");
-  const tags = [
-    ...save.legacy.unlockedClasses.filter(id => id !== "none").map(id => CLASSES[id].name),
-    ...save.legacy.unlockedJobs.filter(id => id !== "none").map(id => JOBS[id].name),
-    ...save.legacy.talents.map(t => t.name)
-  ];
-  document.querySelector("#legacy-preview").innerHTML = tags.length
-    ? `<div class="tag-list">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>`
-    : "<p>Aucun héritage encore. La première vie commence sans spécialisation.</p>";
+  document.querySelector("#legacy-preview").innerHTML = legacyMarkup();
 }
 
 export function summaryMarkup() {

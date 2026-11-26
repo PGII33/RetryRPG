@@ -7,3 +7,4 @@
 .attack-desc{font-style:italic}
 .item-stats{color:var(--accent)!important;font-size:.84rem}
 #tab-content > .panel + .panel {margin-top: 18px;}
+.legacy-create-section {display: grid;gap: 18px;}
