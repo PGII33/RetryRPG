@@ -1,12 +1,157 @@
 import {
   WEAPONS, CLASSES, ATTACKS, STATUS, ZONES, ITEMS
 } from "./game-data.js";
+import { ENEMY_STATUS_EFFECTS } from "./status-config.js";
 import { notify, item, esc, fmtNumber, statName } from "./game-helpers.js?v=3";
 import { save, combat, setCombat, persist, runState, addItem } from "./state.js";
 import { totals, inheritedBonuses, inheritedDomainBonuses } from "./formulas.js";
 import { classLineage } from "./activities.js";
 import { gainClassXp, gainMastery, advanceYear, die, log, refreshShop, completeAction } from "./actions.js";
 import { renderGame } from "./ui.js";
+
+export { ENEMY_STATUS_EFFECTS };
+
+/**
+ * Calculates damage-over-time for a status using static damage if configured,
+ * otherwise percentage of enemy maxHp clamped to configured minimum damage.
+ */
+export function calculateStatusDotDamage(enemy, config) {
+  if (!enemy || !config) return 0;
+  if (Number.isFinite(config.damage)) {
+    return Math.max(0, Math.round(config.damage));
+  }
+  if (Number.isFinite(config.damagePercent)) {
+    const minDamage = Number.isFinite(config.minDamage) ? config.minDamage : 0;
+    return Math.max(minDamage, Math.round(enemy.maxHp * config.damagePercent));
+  }
+  return 0;
+}
+
+/**
+ * Normalizes enemy status entries into `{ id, duration, appliedThisTurn? }` objects.
+ */
+export function normalizeEnemyStatuses(enemy) {
+  if (!enemy) return [];
+  if (!Array.isArray(enemy.statuses)) {
+    enemy.statuses = [];
+    return enemy.statuses;
+  }
+  const normalized = [];
+  const seen = new Set();
+  for (const entry of enemy.statuses) {
+    const id = typeof entry === "string" ? entry : entry?.id;
+    const config = ENEMY_STATUS_EFFECTS[id];
+    if (!id || !config || seen.has(id)) continue;
+    const duration = typeof entry === "object" && Number.isFinite(entry.duration)
+      ? Math.max(0, Math.floor(entry.duration))
+      : config.duration;
+    if (duration <= 0) continue;
+    seen.add(id);
+    normalized.push({
+      id,
+      duration,
+      ...(typeof entry === "object" && entry.appliedThisTurn ? { appliedThisTurn: true } : {})
+    });
+  }
+  enemy.statuses = normalized;
+  return normalized;
+}
+
+export function hasEnemyStatus(enemy, statusId) {
+  return normalizeEnemyStatuses(enemy).some(entry => entry.id === statusId && entry.duration > 0);
+}
+
+/**
+ * Applies or refreshes status effects on an enemy, avoiding duplicate entries.
+ */
+export function applyEnemyStatuses(enemy, statusSpecs, defaultChance = 1) {
+  if (!enemy || !statusSpecs?.length) return [];
+  const statuses = normalizeEnemyStatuses(enemy);
+  const appliedIds = new Set();
+  const messages = [];
+
+  for (const spec of statusSpecs) {
+    const id = typeof spec === "string" ? spec : spec?.id;
+    const config = ENEMY_STATUS_EFFECTS[id];
+    if (!id || !config || appliedIds.has(id)) continue;
+    appliedIds.add(id);
+
+    const chance = typeof spec === "object" && Number.isFinite(spec.chance) ? spec.chance : defaultChance;
+    if (chance < 1 && Math.random() >= chance) continue;
+
+    const duration = typeof spec === "object" && Number.isFinite(spec.duration)
+      ? Math.max(1, Math.floor(spec.duration))
+      : config.duration;
+    const existing = statuses.find(entry => entry.id === id);
+    const label = STATUS[id] || id;
+    const turnUnit = duration > 1 ? "tours" : "tour";
+
+    if (existing) {
+      existing.duration = Math.max(existing.duration, duration);
+      if (config.appliedOnPlayerPhase) existing.appliedThisTurn = true;
+      messages.push(`Effet prolongé : ${label} (${existing.duration} ${existing.duration > 1 ? "tours" : "tour"})`);
+    } else {
+      const next = { id, duration };
+      if (config.appliedOnPlayerPhase) next.appliedThisTurn = true;
+      statuses.push(next);
+      messages.push(`Effet appliqué : ${label} (${duration} ${turnUnit})`);
+    }
+  }
+  return messages;
+}
+
+/**
+ * Processes start-of-enemy-turn status effects (DoT damage and action prevention).
+ */
+export function processEnemyTurnStatuses(enemy) {
+  const statuses = normalizeEnemyStatuses(enemy);
+  let stunned = false;
+
+  for (const entry of statuses) {
+    const config = ENEMY_STATUS_EFFECTS[entry.id];
+    if (!config) continue;
+
+    if (config.damage != null || config.damagePercent != null) {
+      const dmg = calculateStatusDotDamage(enemy, config);
+      enemy.hp = Math.max(0, enemy.hp - dmg);
+      combat.log.unshift(`${enemy.name} subit ${dmg} dégâts (${STATUS[entry.id] || entry.id}).`);
+      if (enemy.hp <= 0) {
+        combat.log.unshift(`${enemy.name} succombe à ses effets de statut.`);
+        return { diedFromStatus: true, stunned };
+      }
+    }
+
+    if (config.preventsAction) {
+      stunned = true;
+    }
+  }
+
+  return { diedFromStatus: false, stunned };
+}
+
+/**
+ * Decrements enemy status durations at the end of a round and removes expired effects.
+ */
+export function tickEnemyStatuses(enemy) {
+  const statuses = normalizeEnemyStatuses(enemy);
+  const remaining = [];
+
+  for (const entry of statuses) {
+    if (entry.appliedThisTurn) {
+      delete entry.appliedThisTurn;
+      remaining.push(entry);
+      continue;
+    }
+    entry.duration -= 1;
+    if (entry.duration <= 0) {
+      combat.log.unshift(`Effet expiré sur ${enemy.name} : ${STATUS[entry.id] || entry.id}.`);
+    } else {
+      remaining.push(entry);
+    }
+  }
+
+  enemy.statuses = remaining;
+}
 
 export function enemyFor(zone) {
   const hp = 42 + zone.difficulty * 18;
@@ -89,9 +234,10 @@ export function autoTurn() {
 }
 
 export function resolveRound(a) {
-  if (!a || !combat) return;
+  if (!a || !combat || combat.finished) return;
   const r = save.run;
   const e = combat.enemy;
+  normalizeEnemyStatuses(e);
   const inherited = inheritedBonuses();
   const weaponLegacy = inheritedDomainBonuses(a.weapon);
   const elementLegacy = inheritedDomainBonuses(a.element);
@@ -128,33 +274,53 @@ export function resolveRound(a) {
         damage *= 1.12;
         line += " Prédateur profite de la faiblesse.";
       }
+      if (hasEnemyStatus(e, "defenseDown")) {
+        damage *= ENEMY_STATUS_EFFECTS.defenseDown.damageMultiplier;
+        line += " Défense réduite augmente les dégâts.";
+      }
       const resist = e.res[a.damage] || 0;
       damage *= Math.max(0.2, 1 - resist / 100);
       const critical = Math.random() * 100 < tot.crit;
       if (critical) damage *= tot.critDamage / 100;
       damage = Math.max(1, Math.round(damage));
-      e.hp -= damage;
+      e.hp = Math.max(0, e.hp - damage);
       line += ` ${damage} dégâts${critical ? " critiques" : ""} (${resist}% résistance appliquée).`;
       if (a.weapon) {
         const masteryGain = gainMastery("weaponMastery", a.weapon, 1);
         log(`Attaque avec ${WEAPONS[a.weapon]} : +${masteryGain} XP de compétence.`);
       }
-      if (a.status?.length) {
-        e.statuses.push(...a.status);
-        line += ` ${a.status.map(x => STATUS[x]).join(", ")}.`;
+      if (e.hp > 0 && a.status?.length) {
+        const statusMessages = applyEnemyStatuses(e, a.status, a.statusChance ?? 1);
+        if (statusMessages.length) {
+          line += ` ${statusMessages.join(", ")}.`;
+        }
       }
     }
   }
   combat.log.unshift(line);
   if (e.hp <= 0) return finishCombat(true);
-  const enemyDamage = Math.max(1, Math.round(5 + combat.zone.difficulty * 2 - tot.defense * 0.18));
-  r.hp -= r.statuses.includes("guard") ? Math.round(enemyDamage * 0.55) : enemyDamage;
-  combat.log.unshift(`${e.name} inflige ${enemyDamage} dégâts.`);
-  if (r.hp <= 0 && Math.random() < 0.12) {
-    r.hp = 1;
-    combat.log.unshift("Dernier souffle : vous survivez à l'attaque mortelle.");
+
+  const statusTurn = processEnemyTurnStatuses(e);
+  if (statusTurn.diedFromStatus) return finishCombat(true);
+
+  if (statusTurn.stunned) {
+    combat.log.unshift(`${e.name} est étourdi et ne peut pas agir ce tour.`);
+  } else {
+    const isSlowed = hasEnemyStatus(e, "slow");
+    let enemyDamage = Math.max(1, Math.round(5 + combat.zone.difficulty * 2 - tot.defense * 0.18));
+    if (isSlowed) {
+      enemyDamage = Math.max(1, Math.round(enemyDamage * ENEMY_STATUS_EFFECTS.slow.damageMultiplier));
+    }
+    r.hp -= r.statuses.includes("guard") ? Math.round(enemyDamage * 0.55) : enemyDamage;
+    combat.log.unshift(`${e.name} inflige ${enemyDamage} dégâts${isSlowed ? " (ralenti)" : ""}.`);
+    if (r.hp <= 0 && Math.random() < 0.12) {
+      r.hp = 1;
+      combat.log.unshift("Dernier souffle : vous survivez à l'attaque mortelle.");
+    }
+    if (r.hp <= 0) return finishCombat(false);
   }
-  if (r.hp <= 0) return finishCombat(false);
+
+  tickEnemyStatuses(e);
   combat.turn++;
   persist();
   renderGame();
@@ -162,10 +328,12 @@ export function resolveRound(a) {
 }
 
 export function finishCombat(win) {
+  if (!combat || combat.finished) return;
   const r = save.run;
   const z = combat.zone;
   const e = combat.enemy;
   combat.finished = true;
+  e.statuses = [];
   if (!win) {
     combat.log.unshift(`Défaite dans ${z.name} contre ${e.name}.`);
     log(`Défaite dans ${z.name} contre ${e.name}.`);

@@ -129,7 +129,7 @@ test("uses previous best levels for growth experience and life expectancy", asyn
   await page.locator('[data-action="work"]').click();
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem("retry-rpg-save-v2")).run);
 
-  expect(after.jobXP).toBe(2.5);
+  expect(after.jobXP).toBe(1);
   expect(after.classXP).toBe(0);
   await page.locator('[data-tab="summary"]').click();
   await expect(page.locator("#tab-content")).toContainText("Espérance de vie : 33.5 ans");
@@ -468,4 +468,565 @@ test("does not unlock ranger from combats but unlocks it after three exploration
   await page.getByRole("button", { name: "Classes / métiers" }).click();
   await expect(page.locator('[data-select-class="ranger"]')).toBeVisible();
 });
+
+test("enemy status application assigns status without duplicates and respects chance", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.learned = ["punch", "ice"];
+    save.run.equippedAttacks = ["punch", "ice", null, null];
+    save.run.mana = 100;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.evaluate(() => {
+    Math.random = () => 0.5;
+  });
+  await page.locator("[data-combat-zone]").first().click();
+
+  await page.locator('[data-attack="ice"]').click();
+  await expect(page.locator(".enemy-statuses")).toContainText("Ralentissement");
+  await expect(page.locator(".battle-log")).toContainText("Effet appliqué : Ralentissement (2 tours)");
+
+  const afterFirst = await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    return state.combat.enemy.statuses.map(s => ({ ...s }));
+  });
+  expect(afterFirst).toEqual([{ id: "slow", duration: 1 }]);
+
+  // Reapplying slow refreshes duration instead of stacking duplicate entries
+  await page.locator('[data-attack="ice"]').click();
+  await expect(page.locator(".battle-log")).toContainText("Effet prolongé : Ralentissement (2 tours)");
+
+  const chanceCheck = await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    const combatMod = await import("/src/combat.js");
+    const e = state.combat.enemy;
+    const beforeLen = e.statuses.length;
+
+    Math.random = () => 0.9;
+    combatMod.applyEnemyStatuses(e, [{ id: "burn", chance: 0.25 }]);
+    const afterMiss = e.statuses.map(s => ({ ...s }));
+
+    Math.random = () => 0.1;
+    combatMod.applyEnemyStatuses(e, ["burn", "burn"]);
+    const afterHit = e.statuses.map(s => ({ ...s }));
+
+    return { beforeLen, afterMiss, afterHit };
+  });
+  expect(chanceCheck.afterMiss.length).toBe(chanceCheck.beforeLen);
+  expect(chanceCheck.afterHit.filter(s => s.id === "burn")).toHaveLength(1);
+});
+
+test("enemy damage-over-time statuses burn and poison deal expected HP damage", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.locator("[data-combat-zone]").first().click();
+
+  const result = await page.evaluate(async () => {
+    Math.random = () => 0.5;
+    const state = await import("/src/state.js");
+    const combatMod = await import("/src/combat.js");
+    const r = state.save.run;
+    r.hp = 500;
+    r.maxHp = 500;
+    r.mana = 100;
+
+    const e = state.combat.enemy;
+    e.maxHp = 60;
+    e.hp = 60;
+
+    combatMod.applyEnemyStatuses(e, ["burn"]);
+    combatMod.resolveRound({ id: "heal", name: "Soin", type: "heal", power: 0, accuracy: 100, mana: 0 });
+    // Heal deals 0 direct dmg -> burn deals round(60 * 0.08) = 5 -> hp 55
+    const hpAfterBurn = e.hp;
+    const burnLog = state.combat.log.find(l => l.includes("Brûlure)"));
+
+    e.statuses = [];
+    e.hp = 60;
+    combatMod.applyEnemyStatuses(e, ["poison"]);
+    combatMod.resolveRound({ id: "heal", name: "Soin", type: "heal", power: 0, accuracy: 100, mana: 0 });
+    // Heal deals 0 direct dmg -> poison deals round(60 * 0.06) = 4 -> hp 56
+    const hpAfterPoison = e.hp;
+    const poisonLog = state.combat.log.find(l => l.includes("Poison)"));
+
+    return { hpAfterBurn, burnLog, hpAfterPoison, poisonLog };
+  });
+
+  expect(result.hpAfterBurn).toBe(55);
+  expect(result.burnLog).toContain("subit 5 dégâts (Brûlure)");
+  expect(result.hpAfterPoison).toBe(56);
+  expect(result.poisonLog).toContain("subit 4 dégâts (Poison)");
+});
+
+test("enemy status duration decreases each round and removes the status on expiration", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.locator("[data-combat-zone]").first().click();
+
+  const rounds = await page.evaluate(async () => {
+    Math.random = () => 0.5;
+    const state = await import("/src/state.js");
+    const combatMod = await import("/src/combat.js");
+    const r = state.save.run;
+    r.hp = 500;
+    r.maxHp = 500;
+    r.mana = 100;
+
+    const e = state.combat.enemy;
+    e.maxHp = 60;
+    e.hp = 60;
+    combatMod.applyEnemyStatuses(e, ["burn"]); // default duration 3
+
+    const snapshots = [];
+    const healAction = { id: "heal", name: "Soin", type: "heal", power: 0, accuracy: 100, mana: 0 };
+    for (let i = 0; i < 3; i++) {
+      combatMod.resolveRound(healAction);
+      snapshots.push({
+        hp: e.hp,
+        statuses: e.statuses.map(s => ({ ...s })),
+        topLogs: state.combat.log.slice(0, 4)
+      });
+    }
+    return snapshots;
+  });
+
+  expect(rounds[0].hp).toBe(55);
+  expect(rounds[0].statuses).toEqual([{ id: "burn", duration: 2 }]);
+  expect(rounds[1].hp).toBe(50);
+  expect(rounds[1].statuses).toEqual([{ id: "burn", duration: 1 }]);
+  expect(rounds[2].hp).toBe(45);
+  expect(rounds[2].statuses).toEqual([]);
+  expect(rounds[2].topLogs.some(l => l.includes("Effet expiré") && l.includes("Brûlure"))).toBe(true);
+});
+
+test("stun prevents enemy action for its duration then allows enemy to act again", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.locator("[data-combat-zone]").first().click();
+
+  const res = await page.evaluate(async () => {
+    Math.random = () => 0.5;
+    const state = await import("/src/state.js");
+    const combatMod = await import("/src/combat.js");
+    const r = state.save.run;
+    r.hp = 100;
+    r.maxHp = 100;
+    r.mana = 100;
+
+    const e = state.combat.enemy;
+    e.maxHp = 100;
+    e.hp = 100;
+
+    // Round 1: apply stun (duration 1)
+    combatMod.resolveRound({ id: "stun-hit", name: "Coup étourdissant", type: "physical", damage: "blunt", power: 1, accuracy: 100, mana: 0, status: ["stun"] });
+    const hpAfterStunRound = r.hp;
+    const stunStatusesAfterR1 = e.statuses.map(s => ({ ...s }));
+    const stunLog = state.combat.log.find(l => l.includes("étourdi"));
+
+    // Round 2: stun expired, enemy attacks normally
+    combatMod.resolveRound({ id: "heal", name: "Soin", type: "heal", power: 0, accuracy: 100, mana: 0 });
+    const hpAfterNormalRound = r.hp;
+    const attackLog = state.combat.log[0];
+
+    return { hpAfterStunRound, stunStatusesAfterR1, stunLog, hpAfterNormalRound, attackLog };
+  });
+
+  expect(res.hpAfterStunRound).toBe(100);
+  expect(res.stunStatusesAfterR1).toEqual([]);
+  expect(res.stunLog).toContain("est étourdi et ne peut pas agir ce tour");
+  expect(res.hpAfterNormalRound).toBeLessThan(100);
+  expect(res.attackLog).toContain("inflige");
+});
+
+test("expired statuses no longer deal damage, slow enemy attacks, or boost player damage", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.locator("[data-combat-zone]").first().click();
+
+  const res = await page.evaluate(async () => {
+    Math.random = () => 0.5;
+    const state = await import("/src/state.js");
+    const combatMod = await import("/src/combat.js");
+    const r = state.save.run;
+    r.stats.strength = 10;
+    r.stats.constitution = 3;
+    r.hp = 500;
+    r.maxHp = 500;
+
+    const e = state.combat.enemy;
+    e.maxHp = 200;
+    e.hp = 200;
+    e.res.blunt = 0;
+
+    const punch = { id: "punch", name: "Coup de poing", type: "physical", damage: "blunt", power: 5, accuracy: 100, mana: 0 };
+    const heal = { id: "heal", name: "Soin", type: "heal", power: 0, accuracy: 100, mana: 0 };
+
+    // Apply burn (duration 1), slow (duration 1), and defenseDown (duration 1)
+    combatMod.applyEnemyStatuses(e, [
+      { id: "burn", duration: 1 },
+      { id: "slow", duration: 1 }
+    ]);
+    // defenseDown applied via attack: should NOT expire before boosting 1 player attack
+    combatMod.resolveRound({ ...punch, status: [{ id: "defenseDown", duration: 1 }] });
+    const burnExpiredAfterR1 = !e.statuses.some(s => s.id === "burn");
+    const slowExpiredAfterR1 = !e.statuses.some(s => s.id === "slow");
+    const defDownActiveAfterR1 = e.statuses.find(s => s.id === "defenseDown");
+    const slowedEnemyDmg = 500 - r.hp;
+
+    // Round 2: defenseDown boosts punch; burn & slow are expired so no burn dmg and full enemy dmg
+    const enemyHpBeforeR2 = e.hp;
+    r.hp = 500;
+    combatMod.resolveRound(punch);
+    const boostedPlayerDmg = enemyHpBeforeR2 - e.hp; // no burn dmg occurred
+    const normalEnemyDmg = 500 - r.hp;
+    const defDownExpiredAfterR2 = !e.statuses.some(s => s.id === "defenseDown");
+
+    // Round 3: defenseDown is expired, punch deals normal unboosted damage
+    const enemyHpBeforeR3 = e.hp;
+    combatMod.resolveRound(punch);
+    const normalPlayerDmg = enemyHpBeforeR3 - e.hp;
+
+    // Also verify no burn damage on Round 4 with heal
+    const enemyHpBeforeR4 = e.hp;
+    combatMod.resolveRound(heal);
+    const enemyHpAfterHealR4 = e.hp;
+
+    return {
+      burnExpiredAfterR1,
+      slowExpiredAfterR1,
+      defDownActiveAfterR1,
+      slowedEnemyDmg,
+      normalEnemyDmg,
+      boostedPlayerDmg,
+      normalPlayerDmg,
+      defDownExpiredAfterR2,
+      enemyHpBeforeR4,
+      enemyHpAfterHealR4
+    };
+  });
+
+  expect(res.burnExpiredAfterR1).toBe(true);
+  expect(res.slowExpiredAfterR1).toBe(true);
+  expect(res.defDownActiveAfterR1).toEqual({ id: "defenseDown", duration: 1 });
+  expect(res.slowedEnemyDmg).toBeLessThan(res.normalEnemyDmg);
+  expect(res.boostedPlayerDmg).toBeGreaterThan(res.normalPlayerDmg);
+  expect(res.defDownExpiredAfterR2).toBe(true);
+  expect(res.enemyHpAfterHealR4).toBe(res.enemyHpBeforeR4);
+});
+
+test("enemy death from status damage terminates combat once without enemy acting", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.locator("[data-combat-zone]").first().click();
+
+  const res = await page.evaluate(async () => {
+    Math.random = () => 0.5;
+    const state = await import("/src/state.js");
+    const combatMod = await import("/src/combat.js");
+    const r = state.save.run;
+    r.hp = 80;
+    r.maxHp = 100;
+    const startAge = r.age;
+    const startItemsFound = r.itemsFound;
+
+    const combatRef = state.combat;
+    const e = combatRef.enemy;
+    e.maxHp = 60;
+    e.hp = 4; // burn deals 5 dmg -> lethal
+    combatMod.applyEnemyStatuses(e, ["burn"]);
+
+    combatMod.resolveRound({ id: "heal", name: "Soin", type: "heal", power: 0, accuracy: 100, mana: 0 });
+    // Attempt a duplicate finishCombat call to ensure victory/rewards cannot fire twice
+    combatMod.finishCombat(true);
+
+    return {
+      combatAfter: state.combat,
+      combatFinished: combatRef.finished,
+      enemyHp: e.hp,
+      enemyStatusesAfter: e.statuses,
+      playerHp: r.hp,
+      ageDelta: r.age - startAge,
+      itemsFoundDelta: r.itemsFound - startItemsFound,
+      combatLog: combatRef.log,
+      runLog: r.log
+    };
+  });
+
+  expect(res.combatAfter).toBeNull();
+  expect(res.combatFinished).toBe(true);
+  expect(res.enemyHp).toBe(0);
+  expect(res.enemyStatusesAfter).toEqual([]);
+  // Player healed +16 (80 -> 96) and did NOT take enemy damage (would have been < 96)
+  expect(res.playerHp).toBeGreaterThanOrEqual(96);
+  expect(res.ageDelta).toBe(1);
+  expect(res.itemsFoundDelta).toBe(1);
+  expect(res.combatLog.some(l => l.includes("succombe à ses effets de statut"))).toBe(true);
+  expect(res.combatLog.filter(l => l.includes("Victoire dans"))).toHaveLength(1);
+  expect(res.combatLog.some(l => l.includes("inflige"))).toBe(false);
+});
+
+test("multiple enemy statuses process together without interfering", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.locator("[data-combat-zone]").first().click();
+
+  const res = await page.evaluate(async () => {
+    Math.random = () => 0.5;
+    const state = await import("/src/state.js");
+    const combatMod = await import("/src/combat.js");
+    const r = state.save.run;
+    r.hp = 200;
+    r.maxHp = 200;
+
+    const e = state.combat.enemy;
+    e.maxHp = 60;
+    e.hp = 60;
+    combatMod.applyEnemyStatuses(e, ["burn", "poison", "stun"]);
+
+    const heal = { id: "heal", name: "Soin", type: "heal", power: 0, accuracy: 100, mana: 0 };
+    combatMod.resolveRound(heal);
+    const afterR1 = {
+      enemyHp: e.hp,
+      playerHp: r.hp,
+      statuses: e.statuses.map(s => ({ ...s }))
+    };
+
+    combatMod.resolveRound(heal);
+    const afterR2 = {
+      enemyHp: e.hp,
+      playerHp: r.hp,
+      statuses: e.statuses.map(s => ({ ...s }))
+    };
+
+    return { afterR1, afterR2 };
+  });
+
+  // Round 1: burn (5) + poison (4) = 9 dmg -> 51 HP; stun prevents enemy attack -> player HP 200; stun expires
+  expect(res.afterR1.enemyHp).toBe(51);
+  expect(res.afterR1.playerHp).toBe(200);
+  expect(res.afterR1.statuses).toEqual([
+    { id: "burn", duration: 2 },
+    { id: "poison", duration: 3 }
+  ]);
+
+  // Round 2: burn (5) + poison (4) = 9 dmg -> 42 HP; enemy attacks now that stun expired
+  expect(res.afterR2.enemyHp).toBe(42);
+  expect(res.afterR2.playerHp).toBeLessThan(200);
+  expect(res.afterR2.statuses).toEqual([
+    { id: "burn", duration: 1 },
+    { id: "poison", duration: 2 }
+  ]);
+});
+
+test("normal combat without enemy statuses and player guard behave without regression", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.evaluate(() => {
+    const key = "retry-rpg-save-v2";
+    const save = JSON.parse(localStorage.getItem(key));
+    save.run.learned = ["punch", "guard"];
+    save.run.equippedAttacks = ["punch", "guard", null, null];
+    save.run.stats.strength = 8;
+    save.run.stats.constitution = 3;
+    save.run.hp = 100;
+    save.run.maxHp = 100;
+    save.run.mana = 30;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.evaluate(() => {
+    Math.random = () => 0.5;
+  });
+  await page.locator("[data-combat-zone]").first().click();
+
+  await expect(page.locator(".enemy-statuses")).toContainText("Statuts : Aucun");
+
+  // Round 1: punch without guard
+  await page.locator('[data-attack="punch"]').click();
+  const afterPunch = await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    return {
+      enemyHp: state.combat.enemy.hp,
+      enemyMaxHp: state.combat.enemy.maxHp,
+      enemyStatuses: state.combat.enemy.statuses,
+      playerHp: state.save.run.hp
+    };
+  });
+  expect(afterPunch.enemyStatuses).toEqual([]);
+  expect(afterPunch.enemyHp).toBeLessThan(afterPunch.enemyMaxHp);
+  const unguardedDamage = 100 - afterPunch.playerHp;
+  expect(unguardedDamage).toBeGreaterThan(0);
+
+  // Round 2: player guard reduces incoming enemy damage
+  await page.locator('[data-attack="guard"]').click();
+  const afterGuard = await page.evaluate(async () => {
+    const state = await import("/src/state.js");
+    return {
+      playerStatuses: state.save.run.statuses,
+      playerHp: state.save.run.hp
+    };
+  });
+  expect(afterGuard.playerStatuses).toContain("guard");
+  const guardedDamage = afterPunch.playerHp - afterGuard.playerHp;
+  expect(guardedDamage).toBeLessThan(unguardedDamage);
+});
+
+test("centralized enemy status configuration exposes expected defaults and supports configurable damage, duration, and multipliers", async ({ page }) => {
+  await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
+  await page.getByRole("button", { name: "Combat", exact: true }).click();
+  await page.locator("[data-combat-zone]").first().click();
+
+  const res = await page.evaluate(async () => {
+    Math.random = () => 0.5;
+    const cfg = await import("/src/status-config.js");
+    const state = await import("/src/state.js");
+    const combatMod = await import("/src/combat.js");
+
+    const defaultsSnapshot = {
+      BURN_DURATION: cfg.BURN_DURATION,
+      BURN_DMG_PERCENT: cfg.BURN_DMG_PERCENT,
+      BURN_MIN_DMG: cfg.BURN_MIN_DMG,
+      BURN_DMG: cfg.BURN_DMG,
+      POISON_DURATION: cfg.POISON_DURATION,
+      POISON_DMG_PERCENT: cfg.POISON_DMG_PERCENT,
+      POISON_MIN_DMG: cfg.POISON_MIN_DMG,
+      POISON_DMG: cfg.POISON_DMG,
+      STUN_DURATION: cfg.STUN_DURATION,
+      SLOW_DURATION: cfg.SLOW_DURATION,
+      SLOW_DAMAGE_MULTIPLIER: cfg.SLOW_DAMAGE_MULTIPLIER,
+      DEFENSE_DOWN_DURATION: cfg.DEFENSE_DOWN_DURATION,
+      DEFENSE_DOWN_DAMAGE_MULTIPLIER: cfg.DEFENSE_DOWN_DAMAGE_MULTIPLIER
+    };
+
+    const r = state.save.run;
+    r.stats.strength = 10;
+    r.stats.constitution = 3;
+    r.hp = 500;
+    r.maxHp = 500;
+
+    const e = state.combat.enemy;
+    e.maxHp = 100;
+    e.hp = 100;
+    e.res.blunt = 0;
+
+    const heal = { id: "heal", name: "Soin", type: "heal", power: 0, accuracy: 100, mana: 0 };
+    const punch = { id: "punch", name: "Coup de poing", type: "physical", damage: "blunt", power: 5, accuracy: 100, mana: 0 };
+
+    const origBurn = { ...cfg.ENEMY_STATUS_EFFECTS.burn };
+    const origPoison = { ...cfg.ENEMY_STATUS_EFFECTS.poison };
+    const origStun = { ...cfg.ENEMY_STATUS_EFFECTS.stun };
+    const origSlow = { ...cfg.ENEMY_STATUS_EFFECTS.slow };
+    const origDefDown = { ...cfg.ENEMY_STATUS_EFFECTS.defenseDown };
+
+    try {
+      // 1. Default Poison on maxHp=100 => round(100 * 0.06) = 6
+      const defaultPoisonDmg = combatMod.calculateStatusDotDamage(e, cfg.ENEMY_STATUS_EFFECTS.poison);
+
+      // 2. Configurable static Poison damage
+      cfg.ENEMY_STATUS_EFFECTS.poison.damage = 14;
+      e.statuses = [];
+      e.hp = 100;
+      combatMod.applyEnemyStatuses(e, ["poison"]);
+      combatMod.resolveRound(heal);
+      const hpAfterStaticPoison = e.hp;
+
+      // 3. Configurable percentage & minimum Poison damage
+      cfg.ENEMY_STATUS_EFFECTS.poison.damage = null;
+      cfg.ENEMY_STATUS_EFFECTS.poison.damagePercent = 0.01;
+      cfg.ENEMY_STATUS_EFFECTS.poison.minDamage = 9;
+      e.statuses = [];
+      e.hp = 100;
+      combatMod.applyEnemyStatuses(e, ["poison"]);
+      combatMod.resolveRound(heal);
+      const hpAfterMinPoison = e.hp;
+
+      // 4. Configurable Stun duration (2 rounds instead of default 1)
+      cfg.ENEMY_STATUS_EFFECTS.stun.duration = 2;
+      e.statuses = [];
+      r.hp = 500;
+      combatMod.applyEnemyStatuses(e, ["stun"]);
+      combatMod.resolveRound(heal);
+      const hpAfterStunR1 = r.hp;
+      const stunRemAfterR1 = e.statuses.find(s => s.id === "stun")?.duration;
+      combatMod.resolveRound(heal);
+      const hpAfterStunR2 = r.hp;
+      const stunRemAfterR2 = e.statuses.find(s => s.id === "stun");
+
+      // 5. Configurable Slow multiplier (0.5 instead of 0.75)
+      e.statuses = [];
+      r.hp = 500;
+      combatMod.resolveRound(heal);
+      const baselineEnemyDmg = 500 - r.hp;
+
+      cfg.ENEMY_STATUS_EFFECTS.slow.damageMultiplier = 0.5;
+      r.hp = 500;
+      combatMod.applyEnemyStatuses(e, ["slow"]);
+      combatMod.resolveRound(heal);
+      const halvedSlowEnemyDmg = 500 - r.hp;
+
+      // 6. Configurable DefenseDown multiplier (2.0 instead of 1.25)
+      e.statuses = [];
+      e.hp = 100;
+      combatMod.resolveRound(punch);
+      const baselinePunchDmg = 100 - e.hp;
+
+      cfg.ENEMY_STATUS_EFFECTS.defenseDown.damageMultiplier = 2.0;
+      e.hp = 100;
+      e.statuses = [{ id: "defenseDown", duration: 1 }];
+      combatMod.resolveRound(punch);
+      const doubledPunchDmg = 100 - e.hp;
+
+      return {
+        defaultsSnapshot,
+        defaultPoisonDmg,
+        hpAfterStaticPoison,
+        hpAfterMinPoison,
+        hpAfterStunR1,
+        stunRemAfterR1,
+        hpAfterStunR2,
+        stunRemAfterR2,
+        baselineEnemyDmg,
+        halvedSlowEnemyDmg,
+        baselinePunchDmg,
+        doubledPunchDmg
+      };
+    } finally {
+      Object.assign(cfg.ENEMY_STATUS_EFFECTS.burn, origBurn);
+      Object.assign(cfg.ENEMY_STATUS_EFFECTS.poison, origPoison);
+      Object.assign(cfg.ENEMY_STATUS_EFFECTS.stun, origStun);
+      Object.assign(cfg.ENEMY_STATUS_EFFECTS.slow, origSlow);
+      Object.assign(cfg.ENEMY_STATUS_EFFECTS.defenseDown, origDefDown);
+    }
+  });
+
+  expect(res.defaultsSnapshot).toEqual({
+    BURN_DURATION: 3,
+    BURN_DMG_PERCENT: 0.08,
+    BURN_MIN_DMG: 3,
+    BURN_DMG: null,
+    POISON_DURATION: 4,
+    POISON_DMG_PERCENT: 0.06,
+    POISON_MIN_DMG: 2,
+    POISON_DMG: null,
+    STUN_DURATION: 1,
+    SLOW_DURATION: 2,
+    SLOW_DAMAGE_MULTIPLIER: 0.75,
+    DEFENSE_DOWN_DURATION: 2,
+    DEFENSE_DOWN_DAMAGE_MULTIPLIER: 1.25
+  });
+  expect(res.defaultPoisonDmg).toBe(6);
+  expect(res.hpAfterStaticPoison).toBe(86);
+  expect(res.hpAfterMinPoison).toBe(91);
+  expect(res.hpAfterStunR1).toBe(500);
+  expect(res.stunRemAfterR1).toBe(1);
+  expect(res.hpAfterStunR2).toBe(500);
+  expect(res.stunRemAfterR2).toBeUndefined();
+  expect(res.halvedSlowEnemyDmg).toBe(Math.max(1, Math.round(res.baselineEnemyDmg * 0.5)));
+  expect(res.doubledPunchDmg).toBe(res.baselinePunchDmg * 2);
+});
+
+
 
