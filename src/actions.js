@@ -9,7 +9,7 @@ import {
   totals, lifeExpectancy, level, masteryText, growthXp, historicalLevel, recordLegacyMasteries, estimatedWork
 } from "./formulas.js";
 import {
-  classLineage, canChangeClass, canUseClassItem, elementalStudyGain, availableStudies, availableTraining, STUDIES, TRAINING, GAMBLER_BETS,
+  classLineage, canChangeClass, canUseClassItem, elementalStudyGain, availableStudies, availableTraining, STUDIES, TRAINING,
   merchantTradeItems
 } from "./activities.js";
 import { learnAttack, ensureClassAttack, grantStartingEquipment, startingEquipmentForClass } from "./progression.js";

@@ -4,7 +4,7 @@ import {
 import { save, qty } from "./state.js";
 import { totals, estimatedWork } from "./formulas.js";
 import { masteryText } from "./progression.js";
-import { countAlchemistIngredients, estimatedAlchemistHarvest } from "./actions.js";
+import { countAlchemistIngredients, estimatedAlchemistHarvest, GAMBLER_BETS, gamblerBetAmount} from "./actions.js";
 
 export const CLASS_WEAPON_TRAINING = {
   warrior: ["sword", "axe", "hammer"],
@@ -217,42 +217,25 @@ export function availableWorkActivities() {
     });
   }
 
-  // Parieur : Différentes options de paris
-  if (jobId === "gambler") {
+if (jobId === "gambler") {
     const luck = totals().luck || 0;
     const gold = r.gold || 0;
 
-    const prudentBet = Math.max(1, Math.floor(gold * 0.25));
-    const prudentChance = Math.min(0.95, Math.max(0.05, 0.58 + luck * 0.02));
-    const prudentAdj = gamblerChanceAdjective(prudentChance);
-    list.push({
-      name: "Pari prudent",
-      description: `Miser 25% de votre or actuel (${prudentBet} po) pour tenter un gain mesuré.`,
-      action: "work:gambler:prudent",
-      extra: gold > 0 ? `Mise : ${prudentBet} po · Chance : ${prudentAdj}` : "Mise : 0 po · Or insuffisant",
-      disabled: gold <= 0
-    });
+    Object.entries(GAMBLER_BETS).forEach(([key, cfg]) => {
+      const bet = gamblerBetAmount(gold, cfg);
+      const canAfford = gold >= bet && bet > 0;
+      const chance = Math.min(cfg.maxCap, Math.max(0.05, cfg.baseChance + luck * 0.02));
+      const adj = gamblerChanceAdjective(chance);
 
-    const boldBet = Math.max(1, Math.floor(gold * 0.50));
-    const boldChance = Math.min(0.90, Math.max(0.05, 0.38 + luck * 0.02));
-    const boldAdj = gamblerChanceAdjective(boldChance);
-    list.push({
-      name: "Pari audacieux",
-      description: `Miser 50% de votre or actuel (${boldBet} po) pour tenter un gain substantiel.`,
-      action: "work:gambler:bold",
-      extra: gold > 0 ? `Mise : ${boldBet} po · Chance : ${boldAdj}` : "Mise : 0 po · Or insuffisant",
-      disabled: gold <= 0
-    });
-
-    const allInBet = gold;
-    const allInChance = Math.min(0.80, Math.max(0.05, 0.18 + luck * 0.02));
-    const allInAdj = gamblerChanceAdjective(allInChance);
-    list.push({
-      name: "Tout ou rien",
-      description: `Miser l'intégralité de votre or actuel (${allInBet} po) pour tenter le jackpot.`,
-      action: "work:gambler:allin",
-      extra: gold > 0 ? `Mise : ${allInBet} po · Chance : ${allInAdj}` : "Mise : 0 po · Or insuffisant",
-      disabled: gold <= 0
+      list.push({
+        name: cfg.label,
+        description: `${cfg.description} (Gain ×${cfg.multiplier}, XP ×${cfg.multiplier} en cas de victoire)`,
+        action: `work:gambler:${key}`,
+        extra: canAfford
+          ? `Mise : ${bet} po (min. ${cfg.minBet}) · Chance : ${adj}`
+          : `Mise requise : ${bet} po · Or insuffisant`,
+        disabled: !canAfford
+      });
     });
   }
 
