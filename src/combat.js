@@ -6,7 +6,7 @@ import { notify, item, esc, fmtNumber, statName } from "./game-helpers.js?v=3";
 import { save, combat, setCombat, persist, runState, addItem } from "./state.js";
 import { totals, inheritedBonuses, inheritedDomainBonuses } from "./formulas.js";
 import { classLineage } from "./activities.js";
-import { attackAvailability, classProgressionHistory } from "./progression.js";
+import { attackAvailability, classProgressionHistory, attackMasteryStats } from "./progression.js";
 import { gainClassXp, gainMastery, advanceYear, die, log, refreshShop, completeAction } from "./actions.js";
 import { renderGame } from "./ui.js";
 
@@ -317,12 +317,17 @@ export function autoTurn() {
     .filter(Boolean)
     .map(id => ATTACKS.find(a => a.id === id))
     .filter(a => {
-      if (!a) return false;
-      const cost = Math.max(0, Math.ceil((a.mana || 0) * (1 - manaEfficiency / 100)));
+    if (!a) return false;
+      const stats = attackMasteryStats(save.run, a);
+      const cost = Math.max(0, Math.ceil(stats.mana * (1 - manaEfficiency / 100)));
       return attackAvailability(save.run, a, cost).available;
     });
-  const a = usable.find(x => x.type === "heal" && save.run.hp < save.run.maxHp * 0.42)
-    || usable.filter(x => x.type !== "heal").sort((x, y) => ((y.power || 0) - (e.res[y.damage] || 0)) - ((x.power || 0) - (e.res[x.damage] || 0)))[0]
+    const a = usable.find(x => x.type === "heal" && save.run.hp < save.run.maxHp * 0.42)
+      || usable.filter(x => x.type !== "heal").sort((x, y) => {
+      const px = attackMasteryStats(save.run, x).power;
+      const py = attackMasteryStats(save.run, y).power;
+      return (py - (e.res[y.damage] || 0)) - (px - (e.res[x.damage] || 0));
+    })[0]
     || usable[0];
   resolveRound(a || ATTACKS[0]);
 }
@@ -337,8 +342,10 @@ export function resolveRound(a) {
   const weaponLegacy = inheritedDomainBonuses(a.weapon);
   const elementLegacy = inheritedDomainBonuses(a.element);
   const tot = totals();
-  let line = `Tour ${combat.turn} : ${a.name}.`;
-  const cost = Math.max(0, Math.ceil((a.mana || 0) * (1 - (inherited.manaEfficiency || 0) / 100)));
+const stats = attackMasteryStats(r, a);
+  const levelTag = (a.weapon || a.element) ? ` (${stats.levelLabel})` : "";
+  let line = `Tour ${combat.turn} : ${a.name}${levelTag}.`;
+  const cost = Math.max(0, Math.ceil(stats.mana * (1 - (inherited.manaEfficiency || 0) / 100)));
   const check = attackAvailability(r, a, cost);
   if (!check.available) return notify(check.reasons[0] || "Attaque indisponible.");
   r.mana -= cost;
@@ -355,10 +362,10 @@ export function resolveRound(a) {
     const guardMsgs = applyPlayerStatuses(r, ["guard"]);
     line += ` ${guardMsgs.length ? guardMsgs.join(", ") : "Protection active"}.`;
   } else {
-    if (Math.random() * 100 > a.accuracy + (tot.accuracy - 80) + (weaponLegacy.accuracy || 0)) {
+  if (Math.random() * 100 > stats.accuracy + (tot.accuracy - 80) + (weaponLegacy.accuracy || 0)) {
       line += " L'attaque échoue.";
     } else {
-      let damage = a.power +
+      let damage = stats.power +
         (a.type === "magic" ? tot.magicPower + (elementLegacy.magicPower || 0) : tot.strength * 0.7) +
         (a.luckScaling ? tot.luck * a.luckScaling : 0) +
         (weaponLegacy.damage || 0) +

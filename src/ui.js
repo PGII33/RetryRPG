@@ -13,7 +13,7 @@ import {
 import {
   availableStudies, availableTraining, availableWorkActivities, canChangeClass, canUseClassItem
 } from "./activities.js";
-import { attackAvailability, classProgressionHistory, hasEquippedWeapon } from "./progression.js";
+import { attackAvailability, classProgressionHistory, hasEquippedWeapon, attackMasteryStats  } from "./progression.js";
 import { unlockChecks } from "./actions.js";
 
 export const TABS = [
@@ -151,11 +151,23 @@ export function classJobMarkup() {
     .filter(id => id !== r.classId && id !== "none" && canChangeClass(id))
     .map(id => `<button class="mini-button" data-select-class="${id}">${CLASSES[id].name}</button>`)
     .join("");
-  const jobChoices = save.legacy.unlockedJobs
-    .filter(id => id !== r.jobId && id !== "none")
-    .map(id => `<button class="mini-button" data-select-job="${id}">${JOBS[id].name}</button>`)
-    .join("");
-  return `<div class="two-columns"><div class="panel"><h2>Classe et progression</h2><p><b>${cls.name}</b> · ${cls.description}</p><div class="summary-list"><div>Maîtrise actuelle : <b>${masteryText({ xp: r.classXP })}</b></div><div>Bonus actif : <b>${cls.stat ? fmtBonuses({ [cls.stat]: 1 }) : "aucun"}</b></div><div>Techniques propres : <b>${r.classId === "none" ? "aucune" : "progression spécifique à la classe"}</b></div></div><h3>Classes disponibles</h3><div class="tag-list">${classChoices || '<span class="empty">Aucune autre classe ou évolution disponible.</span>'}</div></div><div class="panel"><h2>Métier et maîtrise</h2><p><b>${job.name}</b> · ${job.description}</p><div class="summary-list"><div>Niveau actuel : <b>${masteryText({ xp: r.jobXP })}</b></div><div>XP : <b>${r.jobXP} / ${MASTERY_XP[6]}</b></div><div>Effet travail : <b>${job.work} or de base</b></div></div><h3>Métiers disponibles</h3><div class="tag-list">${jobChoices || '<span class="empty">Aucun autre métier disponible.</span>'}</div></div></div>`;
+  const jobChoices = r.jobId === "none"
+    ? save.legacy.unlockedJobs
+        .filter(id => id !== "none")
+        .map(id => `<button class="mini-button" data-select-job="${id}">${JOBS[id].name}</button>`)
+        .join("")
+    : "";
+  const emptyJobMessage = r.jobId === "none"
+    ? "Aucun autre métier disponible."
+    : "Métier déjà choisi pour cette vie.";
+  return `<div class="two-columns"><div class="panel"><h2>Classe et progression</h2><p><b>${cls.name}</b> · ${cls.description}</p><div class="summary-list"><div>Maîtrise actuelle : <b>${masteryText({ xp: r.classXP })}</b></div><div>Bonus actif : <b>${cls.stat ? fmtBonuses({ [cls.stat]: 1 }) : "aucun"}</b></div><div>Techniques propres : <b>${r.classId === "none" ? "aucune" : "progression spécifique à la classe"}</b></div></div><h3>Classes disponibles</h3><div class="tag-list">${classChoices || '<span class="empty">Aucune autre classe ou évolution disponible.</span>'}</div></div><div class="panel"><h2>Métier et maîtrise</h2><p><b>${job.name}</b> · ${job.description}</p><div class="summary-list"><div>Niveau actuel : <b>${masteryText({ xp: r.jobXP })}</b></div><div>XP : <b>${r.jobXP} / ${MASTERY_XP[6]}</b></div><div>Effet travail : <b>${job.work} or de base</b></div></div><h3>Métiers disponibles</h3><div class="tag-list">${jobChoices || `<span class="empty">${emptyJobMessage}</span>`}</div></div></div>`;
+}
+
+export function effectiveAttackCost(a) {
+  if (!a) return 0;
+  const stats = attackMasteryStats(save.run, a);
+  const manaEff = inheritedBonuses().manaEfficiency || 0;
+  return Math.max(0, Math.ceil(stats.mana * (1 - manaEff / 100)));
 }
 
 export function marketMarkup() {
@@ -239,12 +251,6 @@ export function combatMarkupActive() {
   return `<div class="panel"><div class="combat-head"><div><h2>${e.name}</h2><p class="hp">PV ${fmtNumber(Math.max(0, e.hp))} / ${fmtNumber(e.maxHp)}</p><div class="bar"><i style="width:${Math.max(0, e.hp / e.maxHp * 100)}%"></i></div><p>Résistances : ${Object.entries(e.res).map(([k, v]) => `${statName(RES_KEYS[k])} ${fmtNumber(v)}%`).join(" · ")}</p><p class="enemy-statuses muted">Statuts : ${enemyStatuses ? esc(enemyStatuses) : "Aucun"}</p></div><div><h3>${esc(r.name)}</h3><p class="hp">PV ${fmtNumber(Math.ceil(r.hp))} / ${fmtNumber(r.maxHp)}</p><p class="mana">Mana ${fmtNumber(Math.ceil(r.mana))} / ${fmtNumber(Math.ceil(totals().maxMana))}</p><p>Mode : <b>${c.mode === "auto" ? "Automatique" : "Manuel"}</b> · Tour ${fmtNumber(c.turn)}</p><p class="player-statuses muted">Statuts : ${playerStatuses ? esc(playerStatuses) : "Aucun"}</p></div></div>${c.mode === "manual" ? `<h3>Choisir une attaque</h3><div class="attack-grid">${combatAttacks.map(id => attackCard(ATTACKS.find(a => a.id === id))).join("")}</div>${lockedSection}` : `<div class="notice">L'automatisation choisit une attaque adaptée à vos PV, votre mana et les résistances ennemies.<br><button class="primary-button" data-auto-turn>Résoudre le tour automatique</button></div>`}<div class="battle-log">${c.log.map(x => `<p>${esc(x)}</p>`).join("")}</div></div>`;
 }
 
-export function effectiveAttackCost(a) {
-  if (!a) return 0;
-  const manaEff = inheritedBonuses().manaEfficiency || 0;
-  return Math.max(0, Math.ceil((a.mana || 0) * (1 - manaEff / 100)));
-}
-
 export function attackTagsMarkup(a) {
   const tags = [];
   if (a.classId && CLASSES[a.classId]) tags.push(`Classe : ${CLASSES[a.classId].name}`);
@@ -259,9 +265,11 @@ export function attackTagsMarkup(a) {
 export function attackCard(a) {
   if (!a) return '<article class="attack-card locked"><strong>Emplacement vide</strong><p>Aucune technique équipée.</p></article>';
   const cost = effectiveAttackCost(a);
+  const stats = attackMasteryStats(save.run, a);
+  const levelBadge = (a.weapon || a.element) ? ` · ${stats.levelLabel}` : "";
   const check = attackAvailability(save.run, a, cost);
   const lockNote = !check.available ? `<small class="danger">${esc(check.reasons.join(" · "))}</small>` : "";
-  return `<article class="attack-card${check.available ? "" : " locked"}" data-attack-card="${a.id}"><strong>${esc(a.name)}</strong><small>${a.damage || a.type} · puissance ${a.power} · Précision : ${a.accuracy}% · ${cost} mana</small>${attackTagsMarkup(a)}<p>${esc(a.desc)}</p>${lockNote}<button class="mini-button" data-attack="${a.id}" ${check.available ? "" : "disabled"}>Utiliser</button></article>`;
+  return `<article class="attack-card${check.available ? "" : " locked"}" data-attack-card="${a.id}"><strong>${esc(a.name)}${levelBadge}</strong><small>${a.damage || a.type} · puissance ${stats.power} · Précision : ${stats.accuracy}% · ${cost} mana</small>${attackTagsMarkup(a)}<p>${esc(a.desc)}</p>${lockNote}<button class="mini-button" data-attack="${a.id}" ${check.available ? "" : "disabled"}>Utiliser</button></article>`;
 }
 
 export function lockedAttackCard(a) {
@@ -285,12 +293,18 @@ export function formatAttackDetails(a) {
     details.push(`Type : ${typeStr}`);
   }
 
+  const stats = attackMasteryStats(save.run, a);
+
+  if (a.weapon || a.element) {
+    details.push(`Niveau : ${stats.levelLabel}`);
+  }
+
   if (typeof a.power === "number") {
-    details.push(`Puissance : ${a.power}`);
+    details.push(`Puissance : ${stats.power}`);
   }
 
   if (typeof a.accuracy === "number") {
-    details.push(`Précision : ${a.accuracy}%`);
+    details.push(`Précision : ${stats.accuracy}%`);
   }
 
   details.push(`Coût : ${effectiveAttackCost(a)} mana`);

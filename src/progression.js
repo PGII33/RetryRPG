@@ -187,3 +187,30 @@ export function grantStartingEquipment(run) {
   }
   return equipmentItem;
 }
+
+export function attackMasteryStats(run, attack) {
+  if (!attack) return { masteryLevel: 0, power: 0, accuracy: 0, mana: 0 };
+
+  const xp = attack.weapon
+    ? (run?.weaponMastery?.[attack.weapon]?.xp || 0)
+    : attack.element
+    ? (run?.elementMastery?.[attack.element]?.xp || 0)
+    : 0;
+
+  const masteryLevel = (attack.weapon || attack.element) ? level(xp) : 0;
+
+  // Progression calée sur les niveaux de maîtrise (0 à 7)
+  const power = Math.round((attack.power || 0) * (1 + masteryLevel * 0.25));
+  const accuracy = Math.min(100, (attack.accuracy || 0) + masteryLevel);
+  const mana = attack.element
+    ? Math.max(0, (attack.mana || 0) - Math.floor(masteryLevel / 2))
+    : (attack.mana || 0);
+
+  return {
+    masteryLevel,
+    levelLabel: MASTERY_LEVELS[masteryLevel],
+    power,
+    accuracy,
+    mana
+  };
+}
