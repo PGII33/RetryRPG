@@ -9,7 +9,7 @@ import {
   totals, lifeExpectancy, level, masteryText, growthXp, historicalLevel, recordLegacyMasteries, estimatedWork
 } from "./formulas.js";
 import {
-  classLineage, canChangeClass, canUseClassItem, elementalStudyGain, availableStudies, availableTraining, STUDIES, TRAINING,
+  classLineage, canChangeClass, canUseClassItem, elementalStudyGain, availableStudies, availableTraining, STUDIES, TRAINING, GAMBLER_BETS,
   merchantTradeItems
 } from "./activities.js";
 import { learnAttack, ensureClassAttack, grantStartingEquipment, startingEquipmentForClass } from "./progression.js";
@@ -334,28 +334,40 @@ export function doAction(id) {
       );
     }
   }
-  // Parieur : Différentes options de paris avec mise minimum et XP multipliée à la victoire
-  if (jobId === "gambler") {
-    const luck = totals().luck || 0;
-    const gold = r.gold || 0;
+  if (id.startsWith("work:gambler:")) {
+      if (r.jobId !== "gambler") return notify("Cette activité est réservée aux parieurs.");
+      const betType = id.slice(13);
+      const cfg = GAMBLER_BETS[betType];
+      if (!cfg) return notify("Type de pari inconnu.");
 
-    Object.entries(GAMBLER_BETS).forEach(([key, cfg]) => {
-      const bet = gamblerBetAmount(gold, cfg);
-      const canAfford = gold >= bet && bet > 0;
+      const bet = gamblerBetAmount(r.gold || 0, cfg);
+      if (bet <= 0 || (r.gold || 0) < bet) {
+        return notify(`Vous n'avez pas assez d'or pour ce pari (${bet} po requis).`);
+      }
+
+      const luck = totals().luck || 0;
       const chance = Math.min(cfg.maxCap, Math.max(0.05, cfg.baseChance + luck * 0.02));
-      const adj = gamblerChanceAdjective(chance);
+      const won = Math.random() < chance;
 
-      list.push({
-        name: cfg.label,
-        description: `${cfg.description} (Gain ×${cfg.multiplier}, XP ×${cfg.multiplier} en cas de victoire)`,
-        action: `work:gambler:${key}`,
-        extra: canAfford
-          ? `Mise : ${bet} po (min. ${cfg.minBet}) · Chance : ${adj}`
-          : `Mise requise : ${bet} po · Or insuffisant`,
-        disabled: !canAfford
-      });
-    });
-  }
+      r.workActions++;
+
+      if (won) {
+        const netGain = Math.round(bet * (cfg.multiplier - 1));
+        const jobXp = gainJobXp(BASE_JOB_XP * cfg.multiplier);
+        r.gold += netGain;
+        save.legacy.goldEarned += netGain;
+        return completeAction(
+          `${cfg.label} réussi ! Gain : +${netGain} or (${Math.round(bet * cfg.multiplier)} po au total)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+          { luck: 0.2 }
+        );
+      } else {
+        r.gold -= bet;
+        return completeAction(
+          `${cfg.label} perdu... Vous perdez ${bet} or.`,
+          { luck: 0.2 }
+        );
+      }
+    }
   if (id === "work:scholar:read") {
     if (r.jobId !== "scholar") return notify("Cette activité est réservée aux érudits.");
     if ((r.gold || 0) < 20) return notify("Vous n'avez pas assez d'or (20 po nécessaires).");
