@@ -23,6 +23,7 @@ export function log(text) {
 }
 
 export function unlockChecks() {
+  if (!save.run) return;
   const before = [...save.legacy.unlockedClasses, ...save.legacy.unlockedJobs];
   Object.entries(CLASSES).forEach(([id, c]) => {
     if (!save.legacy.unlockedClasses.includes(id) && c.unlock({ run: save.run, legacy: save.legacy })) {
@@ -286,6 +287,9 @@ export function doAction(id) {
       r.itemsFound++;
     }
     return completeAction(found ? `Exploration : ${item(found).name} trouvé.` : "Exploration : rien trouvé.", { agility: 0.2, luck: 0.15 });
+  }
+  if (id === "rest") {
+    return rest();
   }
   if (id === "work") {
     const job = JOBS[r.jobId];
