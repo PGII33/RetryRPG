@@ -7,7 +7,7 @@ import { masteryText } from "./progression.js";
 import { countAlchemistIngredients, estimatedAlchemistHarvest, GAMBLER_BETS, gamblerBetAmount} from "./actions.js";
 
 export const CLASS_WEAPON_TRAINING = {
-  warrior: ["sword", "axe", "hammer"],
+  warrior: ["sword", "axe", "hammer", "spear"],
   ranger: ["bow", "dagger"],
   mage: ["catalyst"]
 };
