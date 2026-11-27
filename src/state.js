@@ -57,6 +57,7 @@ export function newRun() {
     workActions: 0,
     itemsFound: 0,
     materials: 0,
+    ingredients: 0,
     shopStock: ["iron-sword", "leather-hood", "health-potion", "old-gem"],
     learned: ["punch"],
     equippedAttacks: ["punch", null, null, null],

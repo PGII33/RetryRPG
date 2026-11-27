@@ -257,6 +257,7 @@ export function doAction(id) {
         addItem(it.id);
         r.itemsFound++;
         if (it.kind === "material") r.materials++;
+        if (it.kind === "ingredient") r.ingredients = (r.ingredients || 0) + 1;
       });
       const names = items.map(it => it.name).join(", ");
       const totalVal = items.reduce((sum, it) => sum + it.price, 0);
@@ -375,46 +376,67 @@ export function doAction(id) {
       false
     );
   }
+  if (id === "work:alchemist:gather") {
+    if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
+    const pool = ITEMS.filter(i => i.kind === "ingredient");
+    if (!pool.length) return notify("Aucun ingrédient défini dans le catalogue.");
+    const foundCount = estimatedAlchemistHarvest();
+    const counts = {};
+    for (let k = 0; k < foundCount; k++) {
+      const picked = pool[Math.floor(Math.random() * pool.length)];
+      addItem(picked.id);
+      counts[picked.name] = (counts[picked.name] || 0) + 1;
+    }
+    r.itemsFound += foundCount;
+    if (it.kind === "ingredient") r.ingredients = (r.ingredients || 0) + 1;
+    r.workActions++;
+    const jobXp = gainJobXp(BASE_JOB_XP);
+    const summary = Object.entries(counts).map(([name, n]) => `${name} x${n}`).join(", ");
+    return completeAction(
+      `Recherche d'ingrédients : ${summary} récolté(s)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      { knowledge: 0.2, luck: 0.1 }
+    );
+  }
   if (id === "work:alchemist:cure:ingredients") {
     if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
     if (!r.diseases.length) return notify("Vous ne souffrez d'aucune maladie à soigner.");
-    let usedIng = null;
-    if (qty("ore") > 0) { removeItem("ore"); usedIng = "Minerai de fer"; }
-    else if (qty("ember") > 0) { removeItem("ember"); usedIng = "Braise élémentaire"; }
-    else if ((r.materials || 0) > 0) { r.materials--; usedIng = "Ingrédient"; }
-    else return notify("Aucun ingrédient disponible pour préparer le remède.");
-
-    r.workActions++;
-    const jobXp = gainJobXp(BASE_JOB_XP);
-    advanceYear();
+    const used = consumeAlchemistIngredients(1);
+    if (!used.length) {
+      return notify("Aucun ingrédient disponible pour préparer le remède (1 requis).");
+    }
     const cured = r.diseases.shift() || { name: "Maladie" };
     return completeAction(
-      `Remède alchimique (ingrédients) : ${cured.name} guérie à coup sûr (-1 ${usedIng})${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
+      `Remède alchimique (ingrédients) : ${cured.name} guérie instantanément (-1 ${used[0]}).`,
       { knowledge: 0.2 },
       false
     );
   }
   if (id === "work:alchemist:potion:hp") {
     if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
+    const used = consumeAlchemistIngredients(2);
+    if (!used.length) {
+      return notify("Ingrédients insuffisants (2 ingrédients requis).");
+    }
     addItem("greater-health-potion");
-    r.workActions++;
-    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
-      `Alchimie : Potion de soin avancée préparée gratuitement (+60 PV)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
-      { knowledge: 0.2 }
+      `Alchimie : Potion de soin avancée préparée instantanément (-2 ingrédients · +60 PV).`,
+      { knowledge: 0.2 },
+      false
     );
   }
   if (id === "work:alchemist:potion:mana") {
     if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
+    const used = consumeAlchemistIngredients(3);
+    if (!used.length) {
+      return notify("Ingrédients insuffisants (3 ingrédients requis).");
+    }
     addItem("greater-mana-potion");
-    r.workActions++;
-    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
-      `Alchimie : Potion de mana avancée préparée gratuitement (+40 mana)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
-      { knowledge: 0.2 }
+      `Alchimie : Potion de mana avancée préparée instantanément (-3 ingrédients · +40 mana).`,
+      { knowledge: 0.2 },
+      false
     );
   }
-  if (id === "rest") return rest();
 }
 
 export function exploreZone(zoneId) {
@@ -436,6 +458,7 @@ export function exploreZone(zoneId) {
     addItem(reward);
     r.itemsFound++;
     if (item(reward).kind === "material") r.materials++;
+    if (item(reward).kind === "ingredient") r.ingredients = (r.ingredients || 0) + 1;
   }
   completeAction(
     reward ? `Exploration de ${z.name} : ${item(reward).name} trouvé.` : `Exploration de ${z.name} : aucune ressource trouvée.`,
@@ -669,4 +692,35 @@ export function startLife(e) {
   unlockChecks();
   persist();
   renderCreate();
+}
+
+
+export function alchemistIngredientIds() {
+  return ITEMS.filter(i => i.kind === "ingredient" && qty(i.id) > 0).map(i => i.id);
+}
+
+export function countAlchemistIngredients() {
+  return ITEMS
+    .filter(i => i.kind === "ingredient")
+    .reduce((sum, i) => sum + qty(i.id), 0);
+}
+
+export function consumeAlchemistIngredients(count) {
+  if (countAlchemistIngredients() < count) return [];
+  let remaining = count;
+  const consumed = [];
+
+  for (const it of ITEMS.filter(i => i.kind === "ingredient")) {
+    while (remaining > 0 && qty(it.id) > 0) {
+      removeItem(it.id);
+      consumed.push(it.name);
+      remaining--;
+    }
+  }
+  return consumed;
+}
+
+export function estimatedAlchemistHarvest() {
+  const s = totals();
+  return Math.max(1, 1 + Math.floor(((s.luck || 0) + (s.knowledge || 0)) / 4));
 }

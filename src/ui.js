@@ -38,7 +38,7 @@ export function renderActionCard(activity, action, extra = "") {
   const hasAccessibleName = Boolean(activity.element || action.startsWith("train:"));
   const accessibleName = hasAccessibleName ? ` aria-label="${activity.name}"` : "";
   const subtitle = extra || fmtBonuses(activity.gains);
-  const duration = subtitle.endsWith("1 an") ? "" : " · 1 an";
+  const duration = (activity.instant || subtitle.endsWith("1 an")) ? "" : " · 1 an";
   const disabled = activity.disabled ? " disabled" : "";
   return `<article class="action-card ${activity.disabled ? "disabled" : ""}"><h3>${activity.name}</h3><p>${activity.description}</p><small class="muted">${subtitle}${duration}</small><button class="primary-button"${accessibleName} data-action="${action}"${disabled}>Effectuer</button></article>`;
 }
@@ -187,7 +187,14 @@ export function inventoryCard(i, count) {
   const isEquip = i.kind === "equipment";
   const slotName = isEquip ? (SLOTS[i.slot] || i.slot) : "";
   const classAction = i.classWeapon && canUseClassItem(i) ? `<button class="mini-button" data-use="${i.id}">Évoluer vers ${CLASSES[i.classWeapon]?.name || "la classe associée"}</button>` : "";
-  const kindLabel = isEquip ? `Équipement (${slotName})` : i.kind;
+  const kindNames = {
+    consumable: "Consommable",
+    material: "Matériau",
+    ingredient: "Ingrédient",
+    valuable: "Objet de valeur",
+    special: "Spécial"
+  };
+  const kindLabel = isEquip ? `Équipement (${slotName})` : (kindNames[i.kind] || i.kind);
   const statsBonus = i.bonus ? `<p class="item-stats"><b>${fmtBonuses(i.bonus)}</b></p>` : "";
   const desc = i.description ? `<p class="muted">${i.description}</p>` : "";
   const equipDetails = isEquip ? `<small class="muted">Emplacement : ${slotName} · Prérequis : ${req.join(", ") || "aucun"}</small>` : "";

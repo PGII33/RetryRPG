@@ -59,7 +59,7 @@ export const JOBS = {
   gambler: { name: "Parieur", description: "Chance : tirages, jeux et opportunités.", stat: "luck", unlock: s => s.run.stats.luck >= 6, work: 10 },
   scholar: { name: "Érudit", description: "Recherche : savoir, mana et progression élémentaire.", stat: "knowledge", unlock: s => s.run.studyActions >= 10, work: 18 },
   blacksmith: { name: "Forgeron", description: "Forge : matériaux, équipement et maîtrise des marteaux.", stat: "strength", unlock: s => s.run.materials >= 15, work: 32 },
-  alchemist: { name: "Alchimiste", description: "Savoir, soins et consommables.", stat: "knowledge", unlock: s => s.run.itemsFound >= 15, work: 22 }
+  alchemist: { name: "Alchimiste", description: "Savoir, soins et consommables.", stat: "knowledge", unlock: s => (s.run.ingredients || 0) >= 15, work: 22 }
 };
 Object.entries(CLASSES).filter(([id]) => id !== "none").forEach(([id, data]) => {
   MASTERY_DOMAINS[id] = { label: data.name, source: "Classes", passive: { lifeExpectancy: .5 } };
@@ -85,7 +85,11 @@ export const ITEMS = [
   { id: "tonic-constitution", name: "Tonique de constitution", kind: "consumable", rarity: "Rare", price: 145, sell: 55, effect: { stat: "constitution", amount: 1 }, description: "Augmente durablement la Constitution.", stock: 1 },
   { id: "old-gem", name: "Gemme ancienne", kind: "valuable", rarity: "Rare", price: 70, sell: 42, description: "Objet de valeur trouvé en exploration." },
   { id: "ore", name: "Minerai de fer", kind: "material", rarity: "Commun", price: 16, sell: 9, description: "Matériau utile au forgeron." },
-  { id: "ember", name: "Braise élémentaire", kind: "material", rarity: "Rare", price: 48, sell: 25, description: "Matériau chargé de magie." }
+  { id: "ember", name: "Braise élémentaire", kind: "material", rarity: "Rare", price: 48, sell: 25, description: "Matériau chargé de magie." },
+  { id: "medicinal-herb", name: "Herbe médicinale", kind: "ingredient", rarity: "Commun", price: 14, sell: 7, craft_only: true, description: "Une plante apaisante utilisée dans les remèdes et élixirs." },
+  { id: "moon-dew", name: "Rosée lunaire", kind: "ingredient", rarity: "Inhabituel", price: 24, sell: 12, craft_only: true, description: "Une goutte brillante recueillie à l'aube, riche en mana." },
+  { id: "slime-gel", name: "Gelée d'alchimie", kind: "ingredient", rarity: "Commun", price: 18, sell: 9, craft_only: true, description: "Un extrait visqueux servant de base aux préparations." },
+  { id: "mystic-root", name: "Racine mystique", kind: "ingredient", rarity: "Rare", price: 36, sell: 18, craft_only: true, description: "Une racine ancienne recherchée pour les potions avancées." },
 ];
 ITEMS.push(
   { id: "warrior-blade", name: "Lame du rempart", kind: "equipment", rarity: "Rare", slot: "main", weapon: "sword", classWeapon: "warrior", price: 150, sell: 82, bonus: { strength: 2, defense: 4, accuracy: 2 }, req: { strength: 5 }, description: "Une épée équilibrée pour le Guerrier." },
@@ -173,14 +177,14 @@ export const ATTACKS = [
   { id: "evoker-overload", name: "Surcharge arcanique", type: "magic", damage: "magic", power: 20, accuracy: 93, mana: 11, weapon: "catalyst", classId: "evoker", desc: "Le catalyseur concentre le mana pour libérer une décharge arcanique dévastatrice." }
 ];
 export const ZONES = [
-  { id: "forest", name: "Forêt ancienne", difficulty: 1, description: "Loups et gobelins entre les racines.", enemy: ["Loup ancien", "Gobelin rôdeur"], reward: ["ore", "health-potion"] },
-  { id: "ruins", name: "Ruines oubliées", difficulty: 2, description: "Des sentinelles gardent les pierres.", enemy: ["Sentinelle rouillée", "Chauve-souris"], reward: ["old-gem", "ore"], req: { stat: "knowledge", value: 5 } },
+  { id: "forest", name: "Forêt ancienne", difficulty: 1, description: "Loups et gobelins entre les racines.", enemy: ["Loup ancien", "Gobelin rôdeur"], reward: ["ore", "health-potion", "medicinal-herb"] },
+  { id: "ruins", name: "Ruines oubliées", difficulty: 2, description: "Des sentinelles gardent les pierres.", enemy: ["Sentinelle rouillée", "Chauve-souris"], reward: ["old-gem", "ore"] , req: { stat: "knowledge", value: 5 } },
   { id: "crypt", name: "Crypte maudite", difficulty: 3, description: "Les morts y refusent le repos.", enemy: ["Squelette maudit", "Prêtre spectral"], reward: ["mana-potion", "old-gem"], req: { stat: "constitution", value: 6 } },
   { id: "mines", name: "Mines profondes", difficulty: 4, description: "La roche tremble sous les marteaux.", enemy: ["Golem de fer", "Reine des kobolds"], reward: ["ore", "war-hammer"], req: { stat: "strength", value: 7 } },
-  { id: "swamp", name: "Marais toxique", difficulty: 5, description: "Chaque brume peut être un poison.", enemy: ["Slime toxique", "Hydre des marais"], reward: ["tonic-constitution", "ember"], req: { stat: "constitution", value: 8 } },
-  { id: "sanctuary", name: "Sanctuaire gelé", difficulty: 6, description: "La glace conserve une magie ancienne.", enemy: ["Élémentaire de glace", "Gardienne hivernale"], reward: ["mana-potion", "wisdom-ring"], req: { element: "ice", value: 1 } },
+  { id: "swamp", name: "Marais toxique", difficulty: 5, description: "Chaque brume peut être un poison.", enemy: ["Slime toxique", "Hydre des marais"], reward: ["tonic-constitution", "ember", "slime-gel"], req: { stat: "constitution", value: 8 } },
+  { id: "sanctuary", name: "Sanctuaire gelé", difficulty: 6, description: "La glace conserve une magie ancienne.", enemy: ["Élémentaire de glace", "Gardienne hivernale"], reward: ["mana-potion", "wisdom-ring", "moon-dew"], req: { element: "ice", value: 1 } },
   { id: "volcano", name: "Volcan ardent", difficulty: 7, description: "La lave nourrit des monstres furieux.", enemy: ["Salamandre", "Seigneur de braise"], reward: ["ember", "primal-heart"], req: { element: "fire", value: 2 } },
-  { id: "tower", name: "Tour des arcanes", difficulty: 8, description: "Les sorts y prennent vie.", enemy: ["Construct arcanique", "Archimage errant"], reward: ["wisdom-ring", "ember"], req: { stat: "magic", value: 10 } },
+  { id: "tower", name: "Tour des arcanes", difficulty: 8, description: "Les sorts y prennent vie.", enemy: ["Construct arcanique", "Archimage errant"], reward: ["wisdom-ring", "ember", "mystic-root"], req: { stat: "magic", value: 10 } },
   { id: "abyss", name: "Abîme des titans", difficulty: 9, description: "Les colosses ne tolèrent aucune faiblesse.", enemy: ["Titan brisé", "Œil abyssal"], reward: ["guardian-mail", "old-gem"], req: { stat: "constitution", value: 12 } },
   { id: "origins", name: "Donjon des origines", difficulty: 10, description: "Le Gardien primordial attend au commencement.", enemy: ["Gardien primordial"], reward: ["primal-heart"], boss: true, req: { stat: "magic", value: 13 } }
 ];

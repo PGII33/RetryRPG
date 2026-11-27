@@ -4,6 +4,7 @@ import {
 import { save, qty } from "./state.js";
 import { totals, estimatedWork } from "./formulas.js";
 import { masteryText } from "./progression.js";
+import { countAlchemistIngredients, estimatedAlchemistHarvest } from "./actions.js";
 
 export const CLASS_WEAPON_TRAINING = {
   warrior: ["sword", "axe", "hammer"],
@@ -291,40 +292,55 @@ export function availableWorkActivities() {
     });
   }
 
-  // Alchimiste : Guérir une maladie et préparer des potions avancées
+  // Alchimiste : Recherche d'ingrédients, guérison et création de potions
   if (jobId === "alchemist") {
     const gold = r.gold || 0;
     const hasDisease = Boolean(r.diseases?.length);
-    const hasMat = qty("ore") > 0 || qty("ember") > 0 || (r.materials || 0) > 0;
+    const totalIngredients = countAlchemistIngredients();
+    const harvestCount = estimatedAlchemistHarvest();
+
+    list.push({
+      name: "Rechercher des ingrédients",
+      description: "Explorer les environs pour récolter des ingrédients alchimiques selon votre Chance et votre Savoir.",
+      action: "work:alchemist:gather",
+      extra: `Récolte estimée : +${harvestCount} ingrédient(s) · Stock : ${totalIngredients}`
+    });
 
     list.push({
       name: "Remède contre la maladie (or)",
-      description: "Préparer un remède alchimique qui soigne à coup sûr une maladie en 1 tour.",
+      description: "Préparer un remède alchimique qui soigne à coup sûr une maladie en 1 an.",
       action: "work:alchemist:cure:gold",
-      extra: hasDisease ? (gold >= 25 ? "Coût : 25 or · Guérison garantie à 100%" : "Coût : 25 or · Or insuffisant") : "Aucune maladie active",
+      extra: hasDisease ? (gold >= 25 ? "Coût : 25 or · Guérison garantie" : "Coût : 25 or · Or insuffisant") : "Aucune maladie active",
       disabled: !hasDisease || gold < 25
     });
 
     list.push({
       name: "Remède contre la maladie (ingrédients)",
-      description: "Utiliser 1 ingrédient (minerai ou braise) pour soigner à coup sûr une maladie sans dépenser d'or.",
+      description: "Utiliser 1 ingrédient pour soigner instantanément une maladie sans passer d'année.",
       action: "work:alchemist:cure:ingredients",
-      extra: hasDisease ? (hasMat ? "Coût : 1 ingrédient · Guérison garantie à 100%" : "Coût : 1 ingrédient · Ingrédient manquant") : "Aucune maladie active",
-      disabled: !hasDisease || !hasMat
+      instant: true,
+      extra: hasDisease
+        ? (totalIngredients >= 1 ? `Coût : 1 ingrédient (Stock : ${totalIngredients}) · Instantané` : "Coût : 1 ingrédient · Ingrédient manquant")
+        : "Aucune maladie active",
+      disabled: !hasDisease || totalIngredients < 1
     });
 
     list.push({
       name: "Préparer un élixir de soin avancé",
-      description: "Préparer gratuitement une Potion de soin avancée (restaure 60 PV, se vend pour 25 po).",
+      description: "Préparer instantanément une Potion de soin avancée (+60 PV) à partir de 2 ingrédients.",
       action: "work:alchemist:potion:hp",
-      extra: "Gratuit · Potion de soin avancée (+60 PV)"
+      instant: true,
+      extra: `Coût : 2 ingrédients (Stock : ${totalIngredients}) · Instantané`,
+      disabled: totalIngredients < 2
     });
 
     list.push({
       name: "Préparer un élixir de mana avancé",
-      description: "Préparer gratuitement une Potion de mana avancée (restaure 40 mana, se vend pour 35 po).",
+      description: "Préparer instantanément une Potion de mana avancée (+40 mana) à partir de 3 ingrédients.",
       action: "work:alchemist:potion:mana",
-      extra: "Gratuit · Potion de mana avancée (+40 mana)"
+      instant: true,
+      extra: `Coût : 3 ingrédients (Stock : ${totalIngredients}) · Instantané`,
+      disabled: totalIngredients < 3
     });
   }
 

@@ -282,6 +282,7 @@ export function startCombat(zoneId, force = false) {
       addItem(reward);
       r.itemsFound++;
       if (item(reward).kind === "material") r.materials++;
+      if (item(reward).kind === "ingredient") r.ingredients = (r.ingredients || 0) + 1;
     }
     const result = reward
       ? `Exploration de ${z.name} sans combat : ${item(reward).name} x1 trouvé.`
@@ -447,6 +448,7 @@ export function finishCombat(win) {
   addItem(reward);
   r.itemsFound++;
   if (item(reward).kind === "material") r.materials++;
+  if (item(reward).kind === "ingredient") r.ingredients = (r.ingredients || 0) + 1;
   gained.push(`${item(reward).name} x1`);
   const classXp = gainClassXp(2);
   combat.log.unshift(`Victoire dans ${z.name} contre ${e.name}.`);
