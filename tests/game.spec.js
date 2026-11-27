@@ -311,7 +311,7 @@ test("launches combat from the Combat menu instead of exploration", async ({ pag
   await page.getByRole("button", { name: "Commencer à 16 ans" }).click();
   await page.getByRole("button", { name: "Combat", exact: true }).click();
 
-  await expect(page.locator('[data-combat-zone]')).toHaveCount(10);
+  await expect(page.locator('[data-combat-zone]')).toHaveCount(20);
   await page.locator('[data-combat-zone]').first().click();
   await expect(page.locator("#tab-content")).toContainText("Choisir une attaque");
   await expect(page.locator("#tab-content")).toContainText("Coup de poing");
