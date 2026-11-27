@@ -388,7 +388,7 @@ export function doAction(id) {
       counts[picked.name] = (counts[picked.name] || 0) + 1;
     }
     r.itemsFound += foundCount;
-    if (it.kind === "ingredient") r.ingredients = (r.ingredients || 0) + 1;
+    r.ingredients = (r.ingredients || 0) + foundCount;
     r.workActions++;
     const jobXp = gainJobXp(BASE_JOB_XP);
     const summary = Object.entries(counts).map(([name, n]) => `${name} x${n}`).join(", ");
