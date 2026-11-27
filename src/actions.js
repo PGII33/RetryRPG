@@ -190,6 +190,68 @@ export function rest() {
   renderGame();
 }
 
+export const GAMBLER_BETS = {
+  prudent: {
+    label: "Pari prudent",
+    description: "Miser au moins 10 po ou 20% de votre or pour un gain sûr.",
+    betRatio: 0.20,
+    minBet: 10,
+    multiplier: 1.5,
+    baseChance: 0.62,
+    maxCap: 0.95
+  },
+  moderate: {
+    label: "Pari modéré",
+    description: "Miser au moins 25 po ou 35% de votre or pour doubler la mise.",
+    betRatio: 0.35,
+    minBet: 25,
+    multiplier: 2.0,
+    baseChance: 0.48,
+    maxCap: 0.92
+  },
+  bold: {
+    label: "Pari audacieux",
+    description: "Miser au moins 50 po ou 50% de votre or pour un gain substantiel.",
+    betRatio: 0.50,
+    minBet: 50,
+    multiplier: 2.6,
+    baseChance: 0.36,
+    maxCap: 0.88
+  },
+  risky: {
+    label: "Pari risqué",
+    description: "Miser au moins 100 po ou 75% de votre or à haute cote.",
+    betRatio: 0.75,
+    minBet: 100,
+    multiplier: 3.5,
+    baseChance: 0.24,
+    maxCap: 0.82
+  },
+  allin: {
+    label: "Tout ou rien",
+    description: "Miser l'intégralité de votre or (minimum 30 po) pour tenter le jackpot.",
+    betRatio: 1.0,
+    minBet: 30,
+    multiplier: 4.5,
+    baseChance: 0.16,
+    maxCap: 0.78
+  },
+  jackpot: {
+    label: "Coup de folie",
+    description: "Miser l'intégralité de votre fortune (minimum 150 po) sur un tirage extrême.",
+    betRatio: 1.0,
+    minBet: 150,
+    multiplier: 7.0,
+    baseChance: 0.08,
+    maxCap: 0.65
+  }
+};
+
+export function gamblerBetAmount(gold, betCfg) {
+  if (betCfg.betRatio >= 1.0) return Math.max(betCfg.minBet, gold);
+  return Math.max(betCfg.minBet, Math.floor(gold * betCfg.betRatio));
+}
+
 export function doAction(id) {
   if (combat) return notify("Impossible d'effectuer une action pendant un combat.");
   const r = save.run;
@@ -241,7 +303,7 @@ export function doAction(id) {
     if (r.jobId !== "farmer") return notify("Cette activité est réservée aux fermiers.");
     addItem("bread");
     r.workActions++;
-    const jobXp = gainJobXp(BASE_JOB_XP);
+    const jobXp = gainJobXp(BASE_JOB_XP*2);
     return completeAction(
       `Travail de Fermier : Pain produit et ajouté à l'inventaire${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { constitution: 0.2 }
@@ -272,53 +334,27 @@ export function doAction(id) {
       );
     }
   }
-  if (id.startsWith("work:gambler:")) {
-    if (r.jobId !== "gambler") return notify("Cette activité est réservée aux parieurs.");
-    if (r.gold <= 0) return notify("Vous n'avez pas d'or à miser.");
-    const betType = id.slice(13);
-    let betRatio = 0.25;
-    let multiplier = 1.6;
-    let baseChance = 0.58;
-    let label = "Pari prudent";
-
-    if (betType === "bold") {
-      betRatio = 0.5;
-      multiplier = 2.5;
-      baseChance = 0.38;
-      label = "Pari audacieux";
-    } else if (betType === "allin") {
-      betRatio = 1.0;
-      multiplier = 4.0;
-      baseChance = 0.18;
-      label = "Tout ou rien";
-    }
-
-    const bet = betRatio === 1.0 ? r.gold : Math.max(1, Math.floor(r.gold * betRatio));
-    if (bet <= 0 || r.gold < bet) return notify("Vous n'avez pas assez d'or pour miser.");
-
+  // Parieur : Différentes options de paris avec mise minimum et XP multipliée à la victoire
+  if (jobId === "gambler") {
     const luck = totals().luck || 0;
-    const maxCap = betType === "allin" ? 0.80 : betType === "bold" ? 0.90 : 0.95;
-    const chance = Math.min(maxCap, Math.max(0.05, baseChance + luck * 0.02));
-    const won = Math.random() < chance;
+    const gold = r.gold || 0;
 
-    r.workActions++;
-    const jobXp = gainJobXp(BASE_JOB_XP);
+    Object.entries(GAMBLER_BETS).forEach(([key, cfg]) => {
+      const bet = gamblerBetAmount(gold, cfg);
+      const canAfford = gold >= bet && bet > 0;
+      const chance = Math.min(cfg.maxCap, Math.max(0.05, cfg.baseChance + luck * 0.02));
+      const adj = gamblerChanceAdjective(chance);
 
-    if (won) {
-      const netGain = Math.round(bet * (multiplier - 1));
-      r.gold += netGain;
-      save.legacy.goldEarned += netGain;
-      return completeAction(
-        `${label} réussi ! Gain : +${netGain} or (${Math.round(bet * multiplier)} po au total)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
-        { luck: 0.2 }
-      );
-    } else {
-      r.gold -= bet;
-      return completeAction(
-        `${label} perdu... Vous perdez ${bet} or${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
-        { luck: 0.2 }
-      );
-    }
+      list.push({
+        name: cfg.label,
+        description: `${cfg.description} (Gain ×${cfg.multiplier}, XP ×${cfg.multiplier} en cas de victoire)`,
+        action: `work:gambler:${key}`,
+        extra: canAfford
+          ? `Mise : ${bet} po (min. ${cfg.minBet}) · Chance : ${adj}`
+          : `Mise requise : ${bet} po · Or insuffisant`,
+        disabled: !canAfford
+      });
+    });
   }
   if (id === "work:scholar:read") {
     if (r.jobId !== "scholar") return notify("Cette activité est réservée aux érudits.");
