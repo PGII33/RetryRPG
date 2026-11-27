@@ -40,26 +40,26 @@ export const CLASSES = {
   lancer: { name: "Lancier", description: "Évolution du Guerrier spécialisée dans les lances.", stat: "strength", parent: "warrior", hidden: true, weapon: "spear", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.spear.xp >= 8 },  
   hammerer : { name: "Marteleur", description: "Évolution du Guerrier spécialisée dans les marteaux.", stat: "strength", parent: "warrior", hidden: true, weapon: "hammer", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.hammer.xp >= 8 },
   reaver : { name: "Hacheur", description: "Évolution du Guerrier spécialisée dans les haches.", stat: "strength", parent: "warrior", hidden: true, weapon: "axe", unlock: s => s.run.classId === "warrior" && s.run.weaponMastery.axe.xp >= 8 },
-  mage: { name: "Mage", description: "Mana, puissance magique et théorie arcanique.", stat: "magic", unlock: s => s.run.studyActions >= 4 },
+  mage: { name: "Mage", description: "Mana, puissance magique et théorie arcanique.", stat: "magic", unlock: s => s.run.studyActions >= 5 },
   fireMage: { name: "Mage de feu", description: "Spécialiste des sorts ardents et des dégâts prolongés.", stat: "magic", element: "fire", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.fire.xp >= 8 },
   iceMage: { name: "Mage de glace", description: "Spécialiste du contrôle et du ralentissement.", stat: "magic", element: "ice", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.ice.xp >= 8 },
   windMage: { name: "Mage de vent", description: "Spécialiste des sorts rapides et de l'esquive.", stat: "magic", element: "wind", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.wind.xp >= 8 },
   earthMage: { name: "Mage de terre", description: "Spécialiste des sorts lourds et de la résistance.", stat: "magic", element: "earth", parent: "mage", hidden: true, unlock: s => s.run.elementMastery.earth.xp >= 8 },
   evoker: { name: "Évocateur", description: "Spécialiste des catalyseurs, de la canalisation du mana et de l'amplification des sorts.", stat: "magic", parent: "mage", hidden: true, unlock: s => s.run.weaponMastery.catalyst.xp >= 8},
   primordial: { name: "Arcaniste primordial", description: "Affinité rare avec les quatre éléments.", stat: "magic", parent: "mage", hidden: true, unlock: s => s.legacy.primalHeart === true },
-  ranger: { name: "Rôdeur", description: "Exploration, arcs et survie.", stat: "agility", unlock: s => s.run.explorations >= 3 },
+  ranger: { name: "Rôdeur", description: "Exploration, arcs et survie.", stat: "agility", unlock: s => s.run.explorations >= 5 },
   archer: { name: "Archer", description: "Évolution du Rôdeur spécialisée dans les arcs.", stat: "agility", parent: "ranger", hidden: true, weapon: "bow", unlock: s => s.run.classId === "ranger" && s.run.weaponMastery.bow.xp >= 8 },
-  rogue: { name: "Voleur", description: "Évolution du Rôdeur spécialisée dans la précision et les dagues.", stat: "agility", parent: "ranger", hidden: true, weapon: "dagger", unlock: s => s.run.classId === "ranger" && s.run.weaponMastery.dagger.xp >= 6 },
-  luckyman: { name: "Fortuneur", description: "Chance élevée pour des tirages avantageux.", stat: "luck", unlock: s => s.run.stats.luck >= 6 }
+  rogue: { name: "Voleur", description: "Évolution du Rôdeur spécialisée dans la précision et les dagues.", stat: "agility", parent: "ranger", hidden: true, weapon: "dagger", unlock: s => s.run.classId === "ranger" && s.run.weaponMastery.dagger.xp >= 8 },
+  luckyman: { name: "Fortuneur", description: "Chance élevée pour des tirages avantageux.", stat: "luck", unlock: s => s.run.explorations >= 20 }
 };
 export const JOBS = {
   none: { name: "Sans métier", description: "Travail simple, revenus faibles.", stat: null, unlock: () => true, work: 12 },
-  farmer: { name: "Fermier", description: "Agriculture : revenus stables et constitution.", stat: "constitution", unlock: s => s.run.workActions >= 3, work: 28 },
-  merchant: { name: "Marchand", description: "Commerce : meilleurs revenus et prix de vente.", stat: "luck", unlock: s => s.legacy.goldEarned >= 90, work: 38 },
+  farmer: { name: "Fermier", description: "Agriculture : revenus stables et constitution.", stat: "constitution", unlock: s => s.run.workActions >= 10, work: 28 },
+  merchant: { name: "Marchand", description: "Commerce : meilleurs revenus et prix de vente.", stat: "luck", unlock: s => s.legacy.goldEarned >= 200, work: 38 },
   gambler: { name: "Parieur", description: "Chance : tirages, jeux et opportunités.", stat: "luck", unlock: s => s.run.stats.luck >= 6, work: 10 },
-  scholar: { name: "Érudit", description: "Recherche : savoir, mana et progression élémentaire.", stat: "knowledge", unlock: s => s.run.studyActions >= 3, work: 18 },
-  blacksmith: { name: "Forgeron", description: "Forge : matériaux, équipement et maîtrise des marteaux.", stat: "strength", unlock: s => s.run.materials >= 3, work: 32 },
-  alchemist: { name: "Alchimiste", description: "Savoir, soins et consommables.", stat: "knowledge", unlock: s => s.run.itemsFound >= 4, work: 22 }
+  scholar: { name: "Érudit", description: "Recherche : savoir, mana et progression élémentaire.", stat: "knowledge", unlock: s => s.run.studyActions >= 10, work: 18 },
+  blacksmith: { name: "Forgeron", description: "Forge : matériaux, équipement et maîtrise des marteaux.", stat: "strength", unlock: s => s.run.materials >= 15, work: 32 },
+  alchemist: { name: "Alchimiste", description: "Savoir, soins et consommables.", stat: "knowledge", unlock: s => s.run.itemsFound >= 15, work: 22 }
 };
 Object.entries(CLASSES).filter(([id]) => id !== "none").forEach(([id, data]) => {
   MASTERY_DOMAINS[id] = { label: data.name, source: "Classes", passive: { lifeExpectancy: .5 } };
