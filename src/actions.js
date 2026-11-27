@@ -397,16 +397,18 @@ export function doAction(id) {
       { knowledge: 0.2, luck: 0.1 }
     );
   }
-  if (id === "work:alchemist:cure:ingredients") {
+if (id === "work:alchemist:cure:ingredients") {
     if (r.jobId !== "alchemist") return notify("Cette activité est réservée aux alchimistes.");
     if (!r.diseases.length) return notify("Vous ne souffrez d'aucune maladie à soigner.");
     const used = consumeAlchemistIngredients(1);
     if (!used.length) {
       return notify("Aucun ingrédient disponible pour préparer le remède (1 requis).");
     }
+    r.workActions++;
+    const jobXp = gainJobXp(BASE_JOB_XP);
     const cured = r.diseases.shift() || { name: "Maladie" };
     return completeAction(
-      `Remède alchimique (ingrédients) : ${cured.name} guérie instantanément (-1 ${used[0]}).`,
+      `Remède alchimique (ingrédients) : ${cured.name} guérie instantanément (-1 ${used[0]})${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { knowledge: 0.2 },
       false
     );
@@ -418,8 +420,10 @@ export function doAction(id) {
       return notify("Ingrédients insuffisants (2 ingrédients requis).");
     }
     addItem("greater-health-potion");
+    r.workActions++;
+    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
-      `Alchimie : Potion de soin avancée préparée instantanément (-2 ingrédients · +60 PV).`,
+      `Alchimie : Potion de soin avancée préparée instantanément (-2 ingrédients · +60 PV)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { knowledge: 0.2 },
       false
     );
@@ -431,8 +435,10 @@ export function doAction(id) {
       return notify("Ingrédients insuffisants (3 ingrédients requis).");
     }
     addItem("greater-mana-potion");
+    r.workActions++;
+    const jobXp = gainJobXp(BASE_JOB_XP);
     return completeAction(
-      `Alchimie : Potion de mana avancée préparée instantanément (-3 ingrédients · +40 mana).`,
+      `Alchimie : Potion de mana avancée préparée instantanément (-3 ingrédients · +40 mana)${jobXp ? ` · +${jobXp} XP de métier` : ""}.`,
       { knowledge: 0.2 },
       false
     );
