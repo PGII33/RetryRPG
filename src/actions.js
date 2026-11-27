@@ -515,7 +515,7 @@ export function shopItemCount() {
 }
 
 export function refreshShop(notifyPlayer = true) {
-  const candidates = ITEMS.filter(i => i.price && i.kind !== "special" && !i.craftOnly);
+  const candidates = ITEMS.filter(i => i.price && i.kind !== "special" && !i.craft_only);
   const shuffled = candidates.sort(() => Math.random() - 0.5);
   save.run.shopStock = shuffled.slice(0, shopItemCount()).map(i => i.id);
   if (notifyPlayer) log("Le commerce se renouvelle pour les cinq prochaines années.");

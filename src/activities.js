@@ -150,7 +150,7 @@ export function merchantTradeItems() {
   if (!r) return [];
   const luck = totals().luck || 0;
   let budget = Math.floor(estimatedWork() + luck);
-  const eligibleItems = ITEMS.filter(i => i.price > 0 && i.kind !== "special" && !i.craftOnly);
+  const eligibleItems = ITEMS.filter(i => i.price > 0 && i.kind !== "special" && !i.craft_only);
   const gained = [];
 
   while (budget > 0) {
